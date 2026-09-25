@@ -37,8 +37,8 @@ uv run python -m dexmal_workshop.download --weights      # 两份微调权重 + 
 | 5. DW0.5 推演未来（先停掉第 2 步的服务） | `uv run python -m dexmal_workshop.imagine --rollout-dir out/rollout --out out/imagine` | 三行对照视频与 `dw05_sim_check.json` |
 | 6. 拓展：下载数据并转换 | `uv run python -m dexmal_workshop.download --data && uv run python -m dexmal_workshop.prepare_data` | 训练用的统一格式数据 |
 | 7. 拓展：单卡 LoRA 微调（约 70 分钟，先停掉第 2 步的服务） | `uv run python -m dexmal_workshop.train_lora --gpu 0` | 第 300 步检查点与开环自检 `openloop.json` |
-| 7′. 拓展：部署自己训出的模型 | `uv run python -m dexmal_workshop.serve --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300`，再跑第 3 步 | 自己的模型在仿真里的录像 |
-| 8. 拓展：接真机 | `uv run python -m dexmal_workshop.rollout --robot real --port /dev/ttyACM0 --top-camera 0 --wrist-camera 2 --prompt "<训练数据里的指令原句>" --out out/real` | 真机录像 |
+| 7′. 拓展：部署自己训出的模型 | `uv run python -m dexmal_workshop.serve --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300`，再另开终端 `uv run python -m dexmal_workshop.rollout --robot sim --scenes cube40 --episodes 3 --label my_lora --out out/my_model` | 自己的模型在仿真里的录像 |
+| 8. 拓展：接真机（先按讲义第 8.2 节标定） | `uv run python -m dexmal_workshop.rollout --robot real --port /dev/ttyACM0 --top-camera 0 --wrist-camera 2 --robot-id my_so101 --prompt "<训练数据里的指令原句>" --episodes 3 --out out/real` | 真机录像 |
 
 第 3 步和第 8 步是同一个控制循环：仿真与真机都经 LeRobot 的机器人接口访问，差别只在 `--robot`。
 每一步为什么这样做、结果怎么读，见讲义。

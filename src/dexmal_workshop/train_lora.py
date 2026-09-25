@@ -130,7 +130,10 @@ def main() -> int:
     finally:
         server.terminate()
         server.wait(timeout=60)
-    print(f"开环自检结果：{args.out / 'openloop.json'}（passed 为 true 即达标）")
+    print(
+        f"开环自检结果：{args.out / 'openloop.json'}（模型误差与「保持不动」并列给出；300 步时两者通常处在同一水平）\n"
+        f"部署自己的模型：python -m dexmal_workshop.serve --checkpoint {args.out / f'checkpoint-{STEPS}'}"
+    )
     return 0
 
 

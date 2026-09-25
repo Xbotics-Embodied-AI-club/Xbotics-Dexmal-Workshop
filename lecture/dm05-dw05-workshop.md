@@ -220,7 +220,8 @@ uv run python -m dexmal_workshop.serve
 
 ```bash
 uv run python -m dexmal_workshop.rollout --robot sim --scenes cube40 --episodes 10 --out out/rollout
-uv run python -m dexmal_workshop.label_videos --rollout-dir out/rollout --out out/labeled
+uv run python -m dexmal_workshop.label_videos \
+    --rollout-dir out/rollout --out out/labeled
 ```
 
 `out/rollout/rollout_dm05.json` 里是成功局数，`out/labeled/` 里是顶视与腕部并排、顶上写明成败的录像。图 4 是发布的模型在 2 cm 方块场景里的一局成功示例：它先把夹爪移到方块上方，下降合拢，再抬起平移到料箱上方。
@@ -269,7 +270,7 @@ uv run python -m dexmal_workshop.imagine --rollout-dir out/rollout --out out/ima
 
 它读第 4.3 节跑出的轨迹：每一局都存下了逐帧的两路录像和逐步的关节状态，这些轨迹 DW0.5 训练时从没见过。喂给它的“真实动作”，是轨迹里每一步之后实际到达的关节状态。它从每个跑过的场景取 2 条轨迹——按第 4.3 节的命令只跑了 4 cm 方块，所以就是 2 条——每条从起始画面起连推 3 轮、共 96 步。结果在 `out/imagine/dw05_sim_check.json`，`passed` 为真即判据通过。
 
-我们用同样的命令在更多轨迹上做了检验：三个场景各取 4 条（发布的 DM0.5 在第 4.3 节那 50 局里存下的前 4 局，其中 2 条是失败局），共 12 条。
+我们用同样的命令（加上 `--per-scene 4`，并事先在三个场景都跑过第 4.3 节）在更多轨迹上做了检验：三个场景各取 4 条（发布的 DM0.5 在第 4.3 节那 50 局里存下的前 4 局，其中 2 条是失败局），共 12 条。
 
 | 喂给模型的动作 | 与真实画面的平均 PSNR |
 | --- | --- |
@@ -367,11 +368,13 @@ uv run python -m dexmal_workshop.train_lora --gpu 0
 最后把自己训出的模型部署到仿真里看一看——这和第 4.3 节是同一套命令，只是推理服务换成自己的检查点：
 
 ```bash
-uv run python -m dexmal_workshop.serve --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300
-uv run python -m dexmal_workshop.rollout --robot sim --scenes cube40 --episodes 3 --out out/my_model
+uv run python -m dexmal_workshop.serve \
+    --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300
+uv run python -m dexmal_workshop.rollout --robot sim --scenes cube40 --episodes 3 \
+    --label my_lora --out out/my_model
 ```
 
-300 步的模型还比较粗糙，此前在 4 cm 方块上实测 20 局成功 2 局；真机上建议仍用发布的权重。
+300 步的模型还比较粗糙：我们准备工作坊时用同一配方训过一次，在 4 cm 方块上跑 20 局成功 2 局。真机上建议仍用发布的权重。
 
 ## 7.4 本节小结
 
