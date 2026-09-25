@@ -1,0 +1,16 @@
+{
+  "note": "与现场显卡同一代（Blackwell）的单卡上实测；nvidia-smi 每 3 秒按进程采样一次显存占用，取峰值。",
+  "dm05_inference_server": {
+    "what": "发布的 DM0.5 推理服务，在仿真里连续应答 50 局抓放",
+    "peak_mib": 12206
+  },
+  "dw05_inference": {
+    "what": "dexmal_workshop.imagine，12 条轨迹、每条真实与倒放两组各推 3 轮",
+    "peak_mib": 26694
+  },
+  "lora_single_gpu": {
+    "what": "dexmal_workshop.train_lora，每次前向 8 个样本、累积 6 次、300 步",
+    "peak_mib": 24426,
+    "minutes": 68
+  }
+}

@@ -1,0 +1,5 @@
+__pycache__/
+.ruff_cache/
+.venv/
+# dexbotic 的 LoRA 配置训练时会往当前目录写一份可训参数清单。
+user_checkpoints/
