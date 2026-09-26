@@ -799,7 +799,7 @@ wheels = [
 [[package]]
 name = "dexbotic"
 version = "0.2.0"
-source = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git?rev=d0987efdca03d7848fee31c5b3c57627f5bea1b5#d0987efdca03d7848fee31c5b3c57627f5bea1b5" }
+source = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git?rev=8f00f67e992c1971587c07846c604948b1773bbf#8f00f67e992c1971587c07846c604948b1773bbf" }
 dependencies = [
     { name = "accelerate" },
     { name = "albumentations" },
@@ -823,6 +823,7 @@ dependencies = [
     { name = "gradio" },
     { name = "gradio-client" },
     { name = "httpx" },
+    { name = "imageio" },
     { name = "isort" },
     { name = "kernels" },
     { name = "loguru" },
@@ -854,6 +855,7 @@ dependencies = [
     { name = "tqdm" },
     { name = "transformers" },
     { name = "types-requests" },
+    { name = "tyro" },
     { name = "uvicorn" },
     { name = "wandb" },
 ]
@@ -3866,7 +3868,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dexbotic", git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git?rev=d0987efdca03d7848fee31c5b3c57627f5bea1b5" },
+    { name = "dexbotic", git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git?rev=8f00f67e992c1971587c07846c604948b1773bbf" },
     { name = "eva-decord", specifier = "==0.6.1" },
     { name = "flash-attn", url = "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu128torch2.11-cp312-cp312-linux_x86_64.whl" },
     { name = "hydra-core", specifier = ">=1.3.0" },
@@ -3881,7 +3883,7 @@ requires-dist = [
     { name = "rich" },
     { name = "scipy", specifier = ">=1.13,<1.15" },
     { name = "termcolor" },
-    { name = "torch", specifier = "==2.11.0", index = "https://download.pytorch.org/whl/cu128" },
+    { name = "torch", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchvision", index = "https://download.pytorch.org/whl/cu128" },
     { name = "transformers", specifier = "==5.3.0" },
     { name = "tyro", specifier = "==1.0.13" },

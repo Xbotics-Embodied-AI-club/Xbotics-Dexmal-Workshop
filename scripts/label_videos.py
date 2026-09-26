@@ -1,20 +1,21 @@
 """把 rollout 存下的单局录像做成 top | wrist 并排的片子，顶上横幅写明来历。
 
-横幅写清哪个模型、哪个存点、哪个场景、第几局、成没成、是策略在仿真里跑的 ——
+横幅写清哪个模型、哪个场景、第几局、成没成、是策略在仿真里还是真机上跑的 ——
 没有这行字，策略 rollout 与数据集里同样两路并排的演示录像肉眼分不开。
 
 用法：
     python scripts/label_videos.py --rollout-dir <rollout 的输出目录> --out <目录> [--per-kind 2]
-"""
 
-from __future__ import annotations
+每个场景的成功、失败各取前 `--per-kind` 局。
+"""
 
 import argparse
 import pathlib
 
+import av
 import imageio.v3 as iio
 import numpy as np
-from dexbotic.so101.client import read_frames
+from dexbotic.so101.client import parse_episode_stem, read_frames
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -24,35 +25,43 @@ def banner(width: int, text: str, ok: bool) -> np.ndarray:
     return np.asarray(img)
 
 
+def video_fps(path: pathlib.Path) -> float:
+    with av.open(str(path)) as container:
+        return float(container.streams.video[0].average_rate)
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--rollout-dir", required=True, type=pathlib.Path)
     ap.add_argument("--out", required=True, type=pathlib.Path)
-    ap.add_argument("--per-kind", type=int, default=2, help="成功、失败各出几段")
-    ap.add_argument("--fps", type=int, default=30)
+    ap.add_argument("--per-kind", type=int, default=2, help="每个场景成功、失败各出几段")
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
+    picked: dict[tuple[str, str], list[pathlib.Path]] = {}
+    for top_path in sorted((args.rollout_dir / "videos").glob("*.mp4")):
+        if top_path.stem.endswith("_wrist"):
+            continue
+        _, scene, _, kind = parse_episode_stem(top_path.stem)
+        group = picked.setdefault((scene, kind), [])
+        if len(group) < args.per_kind:
+            group.append(top_path)
     made = []
-    for kind in ("success", "fail"):
-        tops = sorted(p for p in (args.rollout_dir / "videos").glob(f"*_{kind}.mp4"))[: args.per_kind]
-        for top_path in tops:
-            wrist = read_frames(top_path.with_name(top_path.stem + "_wrist.mp4"))
-            top = read_frames(top_path)
-            n = min(len(top), len(wrist))
-            # 文件名是 <标签>_<场景>_ep<局号>_<成败>，标签里可以有下划线，所以从右往左拆。
-            label, scene, episode, _ = top_path.stem.rsplit("_", 3)
-            where = "on the real SO-101" if scene == "real" else "in so101_sim"
-            text = (
-                f"{label} policy rollout {where} | {scene} {episode} | "
-                f"{'SUCCESS' if kind == 'success' else 'FAIL'} | {n} steps @{args.fps}fps | left: top  right: wrist"
-            )
-            head = banner(top.shape[2] + wrist.shape[2], text, kind == "success")
-            frames = [
-                np.concatenate([head, np.concatenate([top[t], wrist[t]], axis=1)], axis=0) for t in range(n)
-            ]
-            dst = args.out / f"{label}_{scene}_{episode}_{kind}.mp4"
-            iio.imwrite(str(dst), np.stack(frames), fps=args.fps, codec="libx264")
-            made.append(dst.name)
+    for top_path in (p for group in picked.values() for p in group):
+        label, scene, episode, kind = parse_episode_stem(top_path.stem)
+        top = read_frames(top_path)
+        wrist = read_frames(top_path.with_name(top_path.stem + "_wrist.mp4"))
+        n = min(len(top), len(wrist))
+        fps = video_fps(top_path)
+        where = "on the real SO-101" if scene == "real" else "in so101_sim"
+        text = (
+            f"{label} policy rollout {where} | {scene} {episode} | "
+            f"{'SUCCESS' if kind == 'success' else 'FAIL'} | {n} steps @{fps:g}fps | left: top  right: wrist"
+        )
+        head = banner(top.shape[2] + wrist.shape[2], text, kind == "success")
+        frames = [np.concatenate([head, np.concatenate([top[t], wrist[t]], axis=1)], axis=0) for t in range(n)]
+        dst = args.out / f"{top_path.stem}.mp4"
+        iio.imwrite(str(dst), np.stack(frames), fps=fps, codec="libx264")
+        made.append(dst.name)
     print("\n".join(made) or "没有可用的录像")
     return 0 if made else 1
 

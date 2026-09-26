@@ -18,9 +18,9 @@
 
 产物（`--out` 下）：
     rollout_<标签>.json          每个场景的成功局数（多次运行按场景合并）
-    videos/<标签>_<场景>_ep<局号>_<success|fail>.mp4 / _wrist.mp4 / .npz
-                                 逐局的顶视与腕部录像，以及逐步的关节状态与所发动作；
-                                 DW0.5 的推演（`dexbotic.so101.dw05_sim_check`）直接读这些文件
+    videos/                      逐局的顶视与腕部录像，以及逐步的关节状态与所发动作；文件格式由
+                                 `dexbotic.so101.client` 定义，DW0.5 的推演（`dexbotic.so101.dw05_sim_check`）
+                                 直接读这些文件。同一标签、同一场景重跑时，旧的那几局先删掉
 """
 
 # 不加 `from __future__ import annotations`：draccus 要从注解里拿到真正的配置类，字符串注解它认不出。
@@ -34,20 +34,21 @@ import numpy as np
 
 # 仿真器不叫 lerobot_robot_*，LeRobot 的插件发现找不到它，靠这一行 import 完成 so101_sim 的注册。
 import so101_sim.config_lerobot_robot
-from dexbotic.exp.dm05_exp import DM05InferenceConfig
-from dexbotic.so101.client import IMAGE_SLOTS, request_actions
+from dexbotic.so101.client import (
+    IMAGE_SLOTS,
+    SCENES,
+    episode_stem,
+    infer_endpoint,
+    request_actions,
+    save_episode,
+)
+from dexbotic.so101.dm05_exp import DM05InferenceConfig
 from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig  # noqa: F401  注册 opencv 相机
 from lerobot.robots import RobotConfig, make_robot_from_config, so_follower  # noqa: F401  注册 so101_follower
 
-#: 仿真场景注册名 → 录像文件名里的简称（DW0.5 推演按简称分组取轨迹）。
-SCENES = {
-    "SO101PickPlaceCube40-v1": "cube40",
-    "SO101PickPlaceCube20-v1": "cube20",
-    "SO101PickPlaceCylinder40-v1": "cylinder40",
-}
 #: 一块 50 步动作执行 25 步就重新请求：实测明显好于 8 步，和 50 步没有分出高下。
 REPLAN = 25
-#: 纯黑像素超过这个数就判定画面是坏图。正常渲染是 0；与别的作业共用的显卡可能渲出上万个。
+#: 仿真画面里纯黑像素超过这个数就判定渲染坏了。正常渲染是 0；与别的作业共用的显卡可能渲出上万个。
 SPECKLE_LIMIT = 1000
 #: 单次推理请求的超时（秒）。服务正常时一次约 0.7 秒；第一次请求要预热，留足余量。
 REQUEST_TIMEOUT = 120.0
@@ -58,7 +59,7 @@ class RolloutConfig:
     robot: RobotConfig
     #: 产物目录。
     out: str
-    endpoint: str = f"http://127.0.0.1:{DM05InferenceConfig.port}/v1/infer"
+    endpoint: str = infer_endpoint(DM05InferenceConfig.port)
     #: 写进录像与结果文件名的模型标识。
     label: str = "dm05"
     episodes: int = 10
@@ -135,29 +136,21 @@ def run_episode(
     return success, traj
 
 
-def save_episode(path: pathlib.Path, traj: dict, prompt: str, fps: int) -> None:
-    """存一局的两路录像与逐步状态，文件名与 DW0.5 推演约定的一致。"""
-    import imageio.v3 as iio
-
-    iio.imwrite(str(path.with_suffix(".mp4")), np.stack(traj["top"]), fps=fps, codec="libx264")
-    iio.imwrite(
-        str(path.with_name(path.name + "_wrist.mp4")), np.stack(traj["wrist"]), fps=fps, codec="libx264"
-    )
-    np.savez(
-        path.with_suffix(".npz"),
-        state=np.stack(traj["state"]),
-        action=np.stack(traj["action"]),
-        prompt=prompt,
-    )
-
-
 def run(robot, cfg: RolloutConfig, scene: str, is_sim: bool, video_dir: pathlib.Path) -> dict:
     """在一个场景（或真机的一个任务）上跑完 `--episodes` 局。"""
     prompt = cfg.prompt or robot.task_description
-    first = robot.get_observation()
-    speckle = max(black_pixels(first[name]) for name in IMAGE_SLOTS)
-    if speckle > SPECKLE_LIMIT:
-        raise SystemExit(f"[{scene}] 画面里有 {speckle} 个纯黑像素，是坏图；换一张不与别人共用的卡再跑")
+    if is_sim:
+        # 真机相机看暗处本来就会有大片黑像素，这项只查仿真渲染。
+        first = robot.get_observation()
+        speckle = max(black_pixels(first[name]) for name in IMAGE_SLOTS)
+        if speckle > SPECKLE_LIMIT:
+            raise SystemExit(f"[{scene}] 画面里有 {speckle} 个纯黑像素，是坏图；换一张不与别人共用的卡再跑")
+    # 同一标签、同一场景重跑时先清掉旧的几局：否则上一轮多出来的局会留在目录里，被标注与推演一起读到。
+    stale = sorted(video_dir.glob(f"{cfg.label}_{scene}_ep*"))
+    for path in stale:
+        path.unlink()
+    if stale:
+        print(f"[{scene}] 删掉上一轮留下的 {len(stale)} 个文件", flush=True)
     successes = []
     for episode in range(cfg.episodes):
         if is_sim:
@@ -171,13 +164,21 @@ def run(robot, cfg: RolloutConfig, scene: str, is_sim: bool, video_dir: pathlib.
             success = input("这一局成功了吗？[y/N] ").strip().lower() == "y"
         successes.append(success)
         tag = "success" if success else "fail"
-        save_episode(video_dir / f"{cfg.label}_{scene}_ep{episode:03d}_{tag}", traj, prompt, cfg.fps)
+        stem = episode_stem(cfg.label, scene, episode, success)
+        save_episode(
+            video_dir, stem, traj["top"], traj["wrist"], traj["state"], traj["action"], prompt, cfg.fps
+        )
         print(
             f"[{scene}] 第 {episode:3d} 局  {tag:7s} {len(traj['action']):4d} 步  "
             f"{time.monotonic() - started:5.1f}s  累计 {sum(successes)}/{len(successes)}",
             flush=True,
         )
-    return {"episodes": len(successes), "successes": int(sum(successes)), "prompt": prompt}
+    return {
+        "episodes": len(successes),
+        "successes": int(sum(successes)),
+        "max_steps": cfg.max_steps,
+        "prompt": prompt,
+    }
 
 
 @draccus.wrap()
@@ -196,7 +197,6 @@ def main(cfg: RolloutConfig) -> None:
         robot.disconnect()
     path = out / f"rollout_{cfg.label}.json"
     report = json.loads(path.read_text()) if path.is_file() else {"replan": REPLAN, "scenes": {}}
-    report["max_steps"] = cfg.max_steps
     report["scenes"][scene] = {"robot": cfg.robot.type, **entry}
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[{scene}] 成功 {entry['successes']}/{entry['episodes']}  →  {path}")

@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 # dexbotic 的 LoRA 配置训练时会往当前目录写一份可训参数清单。
 user_checkpoints/
+# 学员跑出来的产物：演示录像默认写在仓根，其余命令的 --out 在讲义里写的是 out/。
+/hello_robot.mp4
+/out/

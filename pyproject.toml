@@ -15,8 +15,8 @@ dependencies = [
     # 机器人的硬件接口（HAL）：仿真与真机都走 LeRobot 的 Robot 接口，控制循环只写一份。
     # 只用它的 robots / motors / cameras 三层，不用它的策略与推理服务。
     "lerobot[feetech]",
-    # 现场显卡是 RTX 5090（Blackwell，sm_120），需要 CUDA 12.8 的轮子，见下方 index。
-    "torch==2.11.0",
+    # 现场显卡是 RTX 5090（Blackwell，sm_120），需要 CUDA 12.8 的轮子，见下方 index；版本钉在下方 override。
+    "torch",
     "torchvision",
     # dexbotic 只给下界；实测 5.15 起 DM0.5 起服务时与 kernels 接口不配套，直接报错。
     "transformers==5.3.0",
@@ -35,7 +35,7 @@ dependencies = [
     "modelscope",
     # numpy 被钉在 1.26.4（见 override），scipy 1.15 起要求 numpy>=2，装上后一 import 就崩。
     "scipy>=1.13,<1.15",
-    # DM0.5 的视觉塔默认走 flash_attention_2，缺这个包直接 ImportError。
+    # 推理加载权重时，DM0.5 视觉塔按权重里的配置走 flash_attention_2，缺这个包推理服务起不来。
     "flash-attn",
     # 读视频的 decord 换成它的维护分支（导入名同样是 decord，接口相同）：PyPI 上 decord 0.6.0 的 Linux 轮子
     # 内部标签写成 cp36，uv 每次运行都判它与 Python 3.12 不匹配、重装一遍；这一份标签正确。原包在下方排除。
@@ -76,7 +76,7 @@ explicit = true
 [tool.uv.sources]
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
-dexbotic = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git", rev = "d0987efdca03d7848fee31c5b3c57627f5bea1b5" }
+dexbotic = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git", rev = "8f00f67e992c1971587c07846c604948b1773bbf" }
 # LeRobot 用 Xbotics 维护的版本，钉提交。
 lerobot = { git = "https://github.com/Xbotics-Embodied-AI-club/lerobot.git", rev = "9381726d2a99f1da8f822ab0917246106d6f8d7c" }
 # PyPI 上只有源码包，会触发半小时级的本地编译；取社区按 torch / CUDA 版本逐一预编译的轮子。
@@ -86,7 +86,6 @@ flash-attn = { url = "https://github.com/mjun0812/flash-attention-prebuild-wheel
 
 [tool.ruff]
 line-length = 110
-extend-exclude = ["third_party"]
 
 [tool.ruff.lint]
 extend-select = ["B", "I", "RUF100"]

@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import os
 import pathlib
+import socket
 import subprocess
 import sys
 import time
@@ -31,9 +32,16 @@ OPENLOOP_EPISODES = (
 )
 
 
+def port_in_use(port: int) -> bool:
+    with socket.socket() as sock:
+        return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
 def wait_for_server(port: int, server: subprocess.Popen, log: pathlib.Path) -> None:
     """等推理服务能响应；服务进程提前退出就把日志尾巴打出来再停。"""
     while True:
+        if server.poll() is not None:
+            raise SystemExit(f"推理服务退出了，日志：\n{log.read_text()[-2000:]}")
         try:
             urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=2)
             return
@@ -41,14 +49,12 @@ def wait_for_server(port: int, server: subprocess.Popen, log: pathlib.Path) -> N
             return  # 服务已经在应答（根路径 404 也算起来了）
         except OSError:
             pass
-        if server.poll() is not None:
-            raise SystemExit(f"推理服务退出了，日志：\n{log.read_text()[-2000:]}")
         time.sleep(10)
 
 
 def main() -> int:
-    from dexbotic.exp.dm05_exp import DM05InferenceConfig
-    from dexbotic.so101.dm05_exp import DM05DataConfig
+    from dexbotic.so101.client import infer_endpoint
+    from dexbotic.so101.dm05_exp import DM05DataConfig, DM05InferenceConfig
     from dexbotic.so101.layout import RUNS_ROOT
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -60,6 +66,15 @@ def main() -> int:
     jsonl = pathlib.Path(DM05DataConfig.jsonl_dir)
     if not jsonl.is_dir():
         raise SystemExit(f"训练数据还没转换：{jsonl} 不存在；先运行 python scripts/prepare_data.py")
+    # 这两项都要等训练跑完（约 70 分钟）才用到，出错了开跑前就停下。
+    missing = [name for name in OPENLOOP_EPISODES if not (jsonl / name).is_file()]
+    if missing:
+        raise SystemExit(f"开环自检要用的数据集不在 {jsonl}：{missing}")
+    if port_in_use(args.port):
+        raise SystemExit(
+            f"端口 {args.port} 已被占用（多半是之前起的推理服务还开着）：先停掉它，"
+            "否则开环自检会打到旧服务上、测的不是刚训出的模型"
+        )
     env = {**os.environ, "CUDA_VISIBLE_DEVICES": str(args.gpu), "TOKENIZERS_PARALLELISM": "false"}
     env.setdefault("WANDB_MODE", "offline")
     train = [
@@ -118,7 +133,7 @@ def main() -> int:
                 "-m",
                 "dexbotic.so101.openloop_check",
                 "--endpoint",
-                f"http://127.0.0.1:{args.port}/v1/infer",
+                infer_endpoint(args.port),
                 "--jsonl",
                 *[str(jsonl / name) for name in OPENLOOP_EPISODES],
                 "--out",

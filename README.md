@@ -23,7 +23,8 @@ uv sync                                      # 一个环境装好模型框架、
 uv run python scripts/download.py --weights   # 两份微调权重 + DW0.5 推理用的基座组件
 ```
 
-数据、权重与产物默认放在 `~/so101_workspace`，设环境变量 `SO101_ROOT` 可以换位置。
+数据、权重与产物默认放在 `~/so101_workspace`，设环境变量 `SO101_ROOT` 可以换位置；换了的话，下面命令里的
+`~/so101_workspace` 也要换成同一个目录。
 以下命令都在本仓目录下运行；`uv run` 会用上面装好的那个环境。
 
 分工：dexbotic（模型框架）和 LeRobot（机器人接口）是面向所有人的通用包，本仓不改它们；本仓 `scripts/`
@@ -43,7 +44,7 @@ uv run python scripts/download.py --weights   # 两份微调权重 + DW0.5 推�
 | 5. DW0.5 推演未来（先停掉第 2 步的服务） | `uv run python -m dexbotic.so101.dw05_sim_check --checkpoint ~/so101_workspace/weights/so101-dw05/model.pt --norm-stats ~/so101_workspace/weights/so101-dw05/norm_stats.json --rollout-dir out/rollout --out out/imagine --per-scene 2` | 三行对照视频与各自的 PSNR（视频里的腕部画面有两份一样的，是模型输入格式所致，见讲义第 5.3 节） |
 | 6. 拓展：下载数据并转换 | `uv run python scripts/download.py --data && uv run python scripts/prepare_data.py` | 训练用的统一格式数据 |
 | 7. 拓展：单卡 LoRA 微调（约 70 分钟，先停掉第 2 步的服务） | `uv run python scripts/train_lora.py --gpu 0` | 第 300 步检查点与开环自检 `openloop.json` |
-| 7′. 拓展：部署自己训出的模型 | `uv run python -m dexbotic.so101.dm05_exp --task inference --model-config.model-name-or-path ~/so101_workspace/runs/lora_single_gpu/checkpoint-300`，再另开终端跑第 3 步的命令，加 `--label=my_lora --out=out/my_model` | 自己的模型在仿真里的录像 |
+| 7′. 拓展：部署自己训出的模型 | `uv run python -m dexbotic.so101.dm05_exp --task inference --model-config.model-name-or-path ~/so101_workspace/runs/lora_single_gpu/checkpoint-300`，再另开终端跑第 3 步的命令，改成 `--episodes=3 --label=my_lora --out=out/my_model` | 自己的模型在仿真里的录像 |
 | 8. 拓展：接真机（先按讲义第 8.2 节标定） | 见下方 | 真机录像 |
 
 第 8 步与第 3 步是同一个控制循环，只把 `--robot.*` 换成真机的那组（串口、臂的名字、两路相机）：
