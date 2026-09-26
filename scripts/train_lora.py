@@ -133,7 +133,8 @@ def main() -> int:
     print(
         f"开环自检结果：{args.out / 'openloop.json'}\n"
         "（模型误差与「保持不动」并列给出；300 步时两者通常处在同一水平）\n"
-        f"部署自己的模型：python scripts/serve.py --checkpoint {args.out / f'checkpoint-{STEPS}'}"
+        "部署自己的模型：python -m dexbotic.so101.dm05_exp --task inference "
+        f"--model-config.model-name-or-path {args.out / f'checkpoint-{STEPS}'}"
     )
     return 0
 

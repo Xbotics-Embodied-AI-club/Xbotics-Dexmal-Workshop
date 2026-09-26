@@ -11,7 +11,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 H = 0.15
 #: 名字 → (左下 x, 左下 y, 宽, 文字, 底色)
 BOXES = {
-    "repo": (0.36, 0.44, 0.28, "教学仓\n讲义、工作坊脚本与流水线", "#f8f1e7"),
+    "repo": (0.36, 0.44, 0.28, "教学仓\n讲义与工作坊脚本", "#f8f1e7"),
     "dexbotic": (0.02, 0.80, 0.28, "Dexbotic\nDM0.5 与 DW0.5 的框架", "#eef3f8"),
     "lerobot": (0.36, 0.80, 0.28, "LeRobot\n仿真与真机的统一接口", "#eef3f8"),
     "sim": (0.70, 0.80, 0.28, "SO-101 仿真器\n注册为 LeRobot 的一种机器人", "#eef3f8"),

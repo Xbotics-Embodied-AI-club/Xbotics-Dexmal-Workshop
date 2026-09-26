@@ -20,7 +20,7 @@
     rollout_dm05.json            每个场景的成功局数（多次运行按场景合并）
     videos/<标签>_<场景>_ep<局号>_<success|fail>.mp4 / _wrist.mp4 / .npz
                                  逐局的顶视与腕部录像，以及逐步的关节状态与所发动作；
-                                 DW0.5 的推演（`scripts/imagine.py`）直接读这些文件
+                                 DW0.5 的推演（`dexbotic.so101.dw05_sim_check`）直接读这些文件
 """
 
 # 不加 `from __future__ import annotations`：draccus 要从注解里拿到真正的配置类，字符串注解它认不出。

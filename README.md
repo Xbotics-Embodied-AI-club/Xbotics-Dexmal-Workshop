@@ -28,24 +28,22 @@ uv run python scripts/download.py --weights       # 两份微调权重 + DW0.5 �
 
 分工：dexbotic（模型框架）和 LeRobot（机器人接口）是面向所有人的通用包，本仓不改它们；本仓 `scripts/`
 放这次工作坊专属的脚本——下哪几份钉死版本的数据和权重、怎么转换、单卡微调配方、把 DM0.5 接到 SO-101 的
-控制循环、推演演示，以及串起主线的 `pipeline.sh`。脚本直接调用这两个包，本仓不打包安装。
+控制循环、录像标注和上手演示。推理服务与 DW0.5 推演直接用 dexbotic 自带的命令。脚本直接调用这两个包，本仓不打包安装。
 机器人一律用 LeRobot 的配置写法给出（`--robot.type=...`，与 `lerobot-calibrate`、`lerobot-record` 相同），
 仿真是 `so101_sim`，真机是 `so101_follower`，换机器人只换这组参数。
-
-想一口气跑完主线（第 1～5 步）：`bash scripts/pipeline.sh`。
 
 ## 今天做什么
 
 | 步骤 | 命令 | 产物 |
 | --- | --- | --- |
 | 1. 认识机械臂：仿真里动一动 | `uv run python scripts/hello_robot.py --robot.type=so101_sim` | `hello_robot.mp4` |
-| 2. 起 DM0.5 推理服务（单独一个终端） | `uv run python scripts/serve.py` | 服务在 `127.0.0.1:7891` |
+| 2. 起 DM0.5 推理服务（单独一个终端） | `uv run python -m dexbotic.so101.dm05_exp --task inference --model-config.model-name-or-path ~/so101_workspace/weights/so101-dm05-lora` | 服务在 `127.0.0.1:7891` |
 | 3. DM0.5 在仿真里抓放 | `uv run python scripts/rollout.py --robot.type=so101_sim --robot.task=SO101PickPlaceCube40-v1 --episodes=10 --out=out/rollout` | `out/rollout/rollout_dm05.json`、逐局录像 |
 | 4. 给录像加标注 | `uv run python scripts/label_videos.py --rollout-dir out/rollout --out out/labeled` | 顶视与腕部并排、写明成败的片子 |
-| 5. DW0.5 推演未来（先停掉第 2 步的服务） | `uv run python scripts/imagine.py --rollout-dir out/rollout --out out/imagine` | 三行对照视频与各自的 PSNR |
+| 5. DW0.5 推演未来（先停掉第 2 步的服务） | `uv run python -m dexbotic.so101.dw05_sim_check --checkpoint ~/so101_workspace/weights/so101-dw05/model.pt --norm-stats ~/so101_workspace/weights/so101-dw05/norm_stats.json --rollout-dir out/rollout --out out/imagine --per-scene 2` | 三行对照视频与各自的 PSNR |
 | 6. 拓展：下载数据并转换 | `uv run python scripts/download.py --data && uv run python scripts/prepare_data.py` | 训练用的统一格式数据 |
 | 7. 拓展：单卡 LoRA 微调（约 70 分钟，先停掉第 2 步的服务） | `uv run python scripts/train_lora.py --gpu 0` | 第 300 步检查点与开环自检 `openloop.json` |
-| 7′. 拓展：部署自己训出的模型 | `uv run python scripts/serve.py --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300`，再另开终端跑第 3 步的命令，加 `--label=my_lora --out=out/my_model` | 自己的模型在仿真里的录像 |
+| 7′. 拓展：部署自己训出的模型 | `uv run python -m dexbotic.so101.dm05_exp --task inference --model-config.model-name-or-path ~/so101_workspace/runs/lora_single_gpu/checkpoint-300`，再另开终端跑第 3 步的命令，加 `--label=my_lora --out=out/my_model` | 自己的模型在仿真里的录像 |
 | 8. 拓展：接真机（先按讲义第 8.2 节标定） | 见下方 | 真机录像 |
 
 第 8 步与第 3 步是同一个控制循环，只把 `--robot.*` 换成真机的那组（串口、臂的名字、两路相机）：
@@ -69,7 +67,7 @@ uv run python scripts/rollout.py \
 ## 目录
 
 ```
-scripts/               工作坊脚本：下载、数据转换、推理服务、控制循环、推演、单卡微调、一条龙 pipeline
+scripts/               工作坊脚本：下载、数据转换、控制循环、录像标注、单卡微调、上手演示
 lecture/               讲义源文件、PDF、出图脚本与图背后的数据
 media/                 演示视频
 ```

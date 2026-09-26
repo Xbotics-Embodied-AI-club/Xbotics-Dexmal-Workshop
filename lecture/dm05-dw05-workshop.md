@@ -106,7 +106,7 @@ uv run python scripts/download.py --data
 
 `uv sync` 把 Dexbotic、LeRobot 以及 LeRobot 所依赖的仿真器从各自的 GitHub 仓按固定版本装进同一个环境，同时装好 PyTorch 等依赖；这几个项目之间的版本冲突教学仓已经处理好，学员不需要管。权重和数据都放在 `~/so101_workspace/` 下，设环境变量 `SO101_ROOT` 可以换到别处。现场的机器已经提前装好、下好，三步都是课后在自己机器上复现时才需要。
 
-之后所有命令都在教学仓目录下用 `uv run` 执行，它会自动使用刚才装好的环境。这里的分工是：Dexbotic（模型框架）和 LeRobot（机器人接口）是面向所有人的通用包，谁都可以拿去接自己的机器人和模型；教学仓 `scripts/` 下放的是这次工作坊专属的脚本：下哪几份钉死版本的数据和权重、怎么转换、单卡微调的配方、把 DM0.5 接到 SO-101 的控制循环、推演演示，以及把上午主线串成一条命令的 `scripts/pipeline.sh`。这些脚本直接调用两个通用包，教学仓本身不打包安装，也不另包一层自己的机器人接口。装好之后，Dexbotic、LeRobot 和仿真器都可以直接 `import`，第 3.4 节就会用到。
+之后所有命令都在教学仓目录下用 `uv run` 执行，它会自动使用刚才装好的环境。这里的分工是：Dexbotic（模型框架）和 LeRobot（机器人接口）是面向所有人的通用包，谁都可以拿去接自己的机器人和模型；教学仓 `scripts/` 下放的是这次工作坊专属的脚本：下哪几份钉死版本的数据和权重、怎么转换、单卡微调的配方、把 DM0.5 接到 SO-101 的控制循环、录像标注和一个上手演示。推理服务和 DW0.5 推演直接用 Dexbotic 自带的命令，不再另写脚本。这些脚本直接调用两个通用包，教学仓本身不打包安装，也不另包一层自己的机器人接口。装好之后，Dexbotic、LeRobot 和仿真器都可以直接 `import`，第 3.4 节就会用到。
 
 ## 2.3 本节小结
 
@@ -308,8 +308,11 @@ DM0.5 以推理服务的形式运行：它监听一个网络端口，收到一�
 先在一个终端起推理服务（第一次运行会下载 DM0.5 的基座权重，要几分钟）：
 
 ```bash
-uv run python scripts/serve.py
+uv run python -m dexbotic.so101.dm05_exp --task inference \
+    --model-config.model-name-or-path ~/so101_workspace/weights/so101-dm05-lora
 ```
+
+这就是 Dexbotic 起推理服务的原命令：`dm05_exp` 是 DM0.5 在 SO-101 上的实验配置，`--task inference` 表示起服务，后面给要加载的权重，默认监听 7891 端口。
 
 服务就绪后，在另一个终端跑 10 局 4 cm 方块，再给录像加上标注：
 
@@ -388,12 +391,15 @@ $$
 DM0.5 的推理服务约占 12 GB 显存，DW0.5 推演约占 26 GB，一张 32 GB 的卡放不下两个，所以先在第一个终端按 Ctrl-C 停掉推理服务，再运行：
 
 ```bash
-uv run python scripts/imagine.py --rollout-dir out/rollout --out out/imagine
+uv run python -m dexbotic.so101.dw05_sim_check \
+    --checkpoint ~/so101_workspace/weights/so101-dw05/model.pt \
+    --norm-stats ~/so101_workspace/weights/so101-dw05/norm_stats.json \
+    --rollout-dir out/rollout --out out/imagine --per-scene 2
 ```
 
-它读第 4.4 节跑出的轨迹：每一局都存下了逐帧的两路录像和逐步的关节状态，这些轨迹 DW0.5 训练时从没见过。喂给它的“真实动作”，是轨迹里每一步之后实际到达的关节状态。它从每个跑过的场景取 2 条轨迹——按第 4.4 节的命令只跑了 4 cm 方块，所以就是 2 条——每条从起始画面起连推 3 轮、共 96 步。三种动作各自的 PSNR 写在 `out/imagine/dw05_sim_check.json` 里，三行对照视频也在 `out/imagine/` 下，建议对着视频看数字。
+这同样是 Dexbotic 自带的评测命令，前两个参数是第 2.2 节下载的 DW0.5 权重和它训练时的归一化统计。它读第 4.4 节跑出的轨迹：每一局都存下了逐帧的两路录像和逐步的关节状态，这些轨迹 DW0.5 训练时从没见过。喂给它的“真实动作”，是轨迹里每一步之后实际到达的关节状态。它从每个跑过的场景取 2 条轨迹（`--per-scene 2`）——按第 4.4 节的命令只跑了 4 cm 方块，所以就是 2 条——每条从起始画面起连推 3 轮、共 96 步。三种动作各自的 PSNR 写在 `out/imagine/dw05_sim_check.json` 里，三行对照视频也在 `out/imagine/` 下，建议对着视频看数字。
 
-我们用同样的命令（加上 `--per-scene 4`，并事先在三个场景都跑过第 4.4 节）在更多轨迹上做了检验：三个场景各取 4 条（发布的 DM0.5 在第 4.4 节那 50 局里存下的前 4 局，其中 2 条是失败局），共 12 条。
+我们用同样的命令（改成 `--per-scene 4`，并事先在三个场景都跑过第 4.4 节）在更多轨迹上做了检验：三个场景各取 4 条（发布的 DM0.5 在第 4.4 节那 50 局里存下的前 4 局，其中 2 条是失败局），共 12 条。
 
 | 喂给模型的动作 | 与真实画面的平均 PSNR |
 | --- | --- |
@@ -501,8 +507,8 @@ uv run python scripts/train_lora.py --gpu 0
 最后把自己训出的模型部署到仿真里看一看——这和第 4.4 节是同一套命令，只是推理服务换成自己的检查点：
 
 ```bash
-uv run python scripts/serve.py \
-    --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300
+uv run python -m dexbotic.so101.dm05_exp --task inference \
+    --model-config.model-name-or-path ~/so101_workspace/runs/lora_single_gpu/checkpoint-300
 uv run python scripts/rollout.py --robot.type=so101_sim \
     --robot.task=SO101PickPlaceCube40-v1 --episodes=3 \
     --label=my_lora --out=out/my_model
