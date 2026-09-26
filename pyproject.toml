@@ -37,6 +37,9 @@ dependencies = [
     "scipy>=1.13,<1.15",
     # DM0.5 的视觉塔默认走 flash_attention_2，缺这个包直接 ImportError。
     "flash-attn",
+    # 读视频的 decord 换成它的维护分支（导入名同样是 decord，接口相同）：PyPI 上 decord 0.6.0 的 Linux 轮子
+    # 内部标签写成 cp36，uv 每次运行都判它与 Python 3.12 不匹配、重装一遍；这一份标签正确。原包在下方排除。
+    "eva-decord==0.6.1",
 ]
 
 [tool.uv]
@@ -61,6 +64,8 @@ override-dependencies = [
     # Trainer 时就会导入它，它在导入时要调用本机 CUDA 工具链里的 nvcc——只装了显卡驱动的机器上直接失败。
     # 标记永远不成立，等于把 dexbotic 声明的这条依赖整条拿掉。
     "deepspeed; sys_platform == 'never'",
+    # decord 由上面的 eva-decord 提供（同一个导入名），原包整条拿掉，两个包不同时装。
+    "decord; sys_platform == 'never'",
 ]
 
 [[tool.uv.index]]
@@ -74,8 +79,10 @@ torchvision = { index = "pytorch-cu128" }
 dexbotic = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git", rev = "d0987efdca03d7848fee31c5b3c57627f5bea1b5" }
 # LeRobot 用 Xbotics 维护的版本，钉提交。
 lerobot = { git = "https://github.com/Xbotics-Embodied-AI-club/lerobot.git", rev = "9381726d2a99f1da8f822ab0917246106d6f8d7c" }
-# PyPI 上只有源码包，会触发半小时级的本地编译；直接取官方预编译轮子。
-flash-attn = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.1/flash_attn-2.8.1+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" }
+# PyPI 上只有源码包，会触发半小时级的本地编译；取社区按 torch / CUDA 版本逐一预编译的轮子。
+# 官方 release 最新只到 torch 2.10，且轮子元数据里的版本号不带文件名上的本地标签，uv 每次运行都判它
+# 「不是最新」重装一遍；这一份按 torch 2.11 + CUDA 12.8 编译，元数据版本与文件名一致。
+flash-attn = { url = "https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu128torch2.11-cp312-cp312-linux_x86_64.whl" }
 
 [tool.ruff]
 line-length = 110
