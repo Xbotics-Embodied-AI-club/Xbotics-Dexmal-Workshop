@@ -1,20 +1,19 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "xbotics-dexmal-workshop"
 version = "0.1.0"
-description = "Xbotics × 原力灵机工作坊：DM0.5 策略 + DW0.5 世界模型在 SO-101 仿真上的示例"
+description = "Xbotics × 原力灵机工作坊：DM0.5 策略 + DW0.5 世界模型在 SO-101 上的讲义与环境"
 # 3.12 是上游 mani-skill 与 flash-attn 预编译轮子共同支持的版本。
 requires-python = ">=3.12,<3.13"
 
-# 一个环境装下训练、推理与仿真：dexbotic 的 so101-sim 附加项把仿真器一并带进来。
+# 本仓不是一个 Python 包：代码都在 dexbotic（模型、推理服务、控制循环、数据与训练入口）与
+# LeRobot（机器人接口）里，本仓只声明一个把它们装在一起的环境，外加讲义与演示脚本。
+# 一个环境装下训练、推理与仿真：dexbotic 的 so101-sim 附加项把仿真器与 LeRobot 一并带进来。
 # 以下各项钉版都是 dexbotic 自己的声明管不到、但实际运行时一旦松开就出错的地方。
 dependencies = [
     "dexbotic[so101-sim]",
     # 机器人的硬件接口（HAL）：仿真与真机都走 LeRobot 的 Robot 接口，控制循环只写一份。
     # 只用它的 robots / motors / cameras 三层，不用它的策略与推理服务。
+    # dexbotic 的附加项已声明它；这里再写一次是为了让下方 [tool.uv.sources] 的钉版生效。
     "lerobot[feetech]",
     # 现场显卡是 RTX 5090（Blackwell，sm_120），需要 CUDA 12.8 的轮子，见下方 index。
     "torch==2.11.0",
@@ -41,6 +40,8 @@ dependencies = [
 ]
 
 [tool.uv]
+# 只装依赖，不把本仓当成包安装。
+package = false
 # 三个上游各自的版本上限互相矛盾，全部统一到 DM0.5 实际跑通的那一组：
 # - numpy：仿真器与 LeRobot 声明 >=2，dexbotic 钉 1.26.4；
 # - torch / torchvision：LeRobot 声明 torch<2.11、torchvision<0.26，DM0.5 钉 torch 2.11。
@@ -70,14 +71,11 @@ explicit = true
 [tool.uv.sources]
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
-dexbotic = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git", rev = "3f2bc6bb86a11e0b070e39ee226251c4d3b04f63" }
+dexbotic = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git", rev = "b630bdf8583e376f7020333fe23fa93052dd7465" }
 # LeRobot 用 Xbotics 维护的版本，钉提交。
 lerobot = { git = "https://github.com/Xbotics-Embodied-AI-club/lerobot.git", rev = "9381726d2a99f1da8f822ab0917246106d6f8d7c" }
 # PyPI 上只有源码包，会触发半小时级的本地编译；直接取官方预编译轮子。
 flash-attn = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.1/flash_attn-2.8.1+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" }
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/dexmal_workshop"]
 
 [tool.ruff]
 line-length = 110

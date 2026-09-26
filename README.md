@@ -20,27 +20,39 @@
 ```bash
 git clone https://github.com/Xbotics-Embodied-AI-club/Xbotics-Dexmal-Workshop.git && cd Xbotics-Dexmal-Workshop
 uv sync                                                  # 一个环境装好模型、仿真器与机器人接口
-uv run python -m dexmal_workshop.download --weights      # 两份微调权重 + DW0.5 推理用的基座组件
+uv run python -m dexbotic.so101.download --weights       # 两份微调权重 + DW0.5 推理用的基座组件
 ```
 
 数据、权重与产物默认放在 `~/so101_workspace`，设环境变量 `SO101_ROOT` 可以换位置。
 以下命令都在本仓目录下运行；`uv run` 会用上面装好的那个环境。
 
+本仓不是一个 Python 包：模型、推理服务、控制循环、数据与训练入口都在 dexbotic 的 `dexbotic.so101` 里，
+机器人接口是 LeRobot。机器人一律用 LeRobot 的配置写法给出（`--robot.type=...`，与 `lerobot-calibrate`、
+`lerobot-record` 相同），仿真是 `so101_sim`，真机是 `so101_follower`，换机器人只换这组参数。
+
 ## 今天做什么
 
 | 步骤 | 命令 | 产物 |
 | --- | --- | --- |
-| 1. 认识机械臂：仿真里动一动 | `uv run python -m dexmal_workshop.hello_sim` | `hello_sim.mp4` |
-| 2. 起 DM0.5 推理服务（单独一个终端） | `uv run python -m dexmal_workshop.serve` | 服务在 `127.0.0.1:7891` |
-| 3. DM0.5 在仿真里抓放 | `uv run python -m dexmal_workshop.rollout --robot sim --scenes cube40 --episodes 10 --out out/rollout` | `out/rollout/rollout_dm05.json`、逐局录像 |
-| 4. 给录像加标注 | `uv run python -m dexmal_workshop.label_videos --rollout-dir out/rollout --out out/labeled` | 顶视与腕部并排、写明成败的片子 |
-| 5. DW0.5 推演未来（先停掉第 2 步的服务） | `uv run python -m dexmal_workshop.imagine --rollout-dir out/rollout --out out/imagine` | 三行对照视频与 `dw05_sim_check.json` |
-| 6. 拓展：下载数据并转换 | `uv run python -m dexmal_workshop.download --data && uv run python -m dexmal_workshop.prepare_data` | 训练用的统一格式数据 |
-| 7. 拓展：单卡 LoRA 微调（约 70 分钟，先停掉第 2 步的服务） | `uv run python -m dexmal_workshop.train_lora --gpu 0` | 第 300 步检查点与开环自检 `openloop.json` |
-| 7′. 拓展：部署自己训出的模型 | `uv run python -m dexmal_workshop.serve --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300`，再另开终端 `uv run python -m dexmal_workshop.rollout --robot sim --scenes cube40 --episodes 3 --label my_lora --out out/my_model` | 自己的模型在仿真里的录像 |
-| 8. 拓展：接真机（先按讲义第 8.2 节标定） | `uv run python -m dexmal_workshop.rollout --robot real --port /dev/ttyACM0 --top-camera 0 --wrist-camera 2 --robot-id my_so101 --prompt "<训练数据里的指令原句>" --episodes 3 --out out/real` | 真机录像 |
+| 1. 认识机械臂：仿真里动一动 | `uv run python examples/hello_robot.py --robot.type=so101_sim` | `hello_robot.mp4` |
+| 2. 起 DM0.5 推理服务（单独一个终端） | `uv run python -m dexbotic.so101.serve` | 服务在 `127.0.0.1:7891` |
+| 3. DM0.5 在仿真里抓放 | `uv run python -m dexbotic.so101.rollout --robot.type=so101_sim --robot.task=SO101PickPlaceCube40-v1 --episodes=10 --out=out/rollout` | `out/rollout/rollout_dm05.json`、逐局录像 |
+| 4. 给录像加标注 | `uv run python -m dexbotic.so101.label_videos --rollout-dir out/rollout --out out/labeled` | 顶视与腕部并排、写明成败的片子 |
+| 5. DW0.5 推演未来（先停掉第 2 步的服务） | `uv run python -m dexbotic.so101.imagine --rollout-dir out/rollout --out out/imagine` | 三行对照视频与各自的 PSNR |
+| 6. 拓展：下载数据并转换 | `uv run python -m dexbotic.so101.download --data && uv run python -m dexbotic.so101.prepare_data` | 训练用的统一格式数据 |
+| 7. 拓展：单卡 LoRA 微调（约 70 分钟，先停掉第 2 步的服务） | `uv run python -m dexbotic.so101.train_lora --gpu 0` | 第 300 步检查点与开环自检 `openloop.json` |
+| 7′. 拓展：部署自己训出的模型 | `uv run python -m dexbotic.so101.serve --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300`，再另开终端跑第 3 步的命令，加 `--label=my_lora --out=out/my_model` | 自己的模型在仿真里的录像 |
+| 8. 拓展：接真机（先按讲义第 8.2 节标定） | 见下方 | 真机录像 |
 
-第 3 步和第 8 步是同一个控制循环：仿真与真机都经 LeRobot 的机器人接口访问，差别只在 `--robot`。
+第 8 步与第 3 步是同一个控制循环，只把 `--robot.*` 换成真机的那组（串口、臂的名字、两路相机）：
+
+```bash
+uv run python -m dexbotic.so101.rollout \
+    --robot.type=so101_follower --robot.port=/dev/ttyACM0 --robot.id=my_so101 \
+    --robot.use_degrees=true --robot.max_relative_target=5 \
+    --robot.cameras="{top: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}" \
+    --prompt="<训练数据里的指令原句>" --episodes=3 --out=out/real
+```
 每一步为什么这样做、结果怎么读，见讲义。
 
 ## 参考结果
@@ -53,7 +65,7 @@ uv run python -m dexmal_workshop.download --weights      # 两份微调权重 + 
 ## 目录
 
 ```
-src/dexmal_workshop/   本工作坊的代码：控制循环、推理服务入口、下载与数据转换、单卡微调
+examples/              演示脚本：用 LeRobot 造一台 SO-101（仿真或真机）动一动
 lecture/               讲义源文件、PDF、出图脚本与图背后的数据
 media/                 演示视频
 ```

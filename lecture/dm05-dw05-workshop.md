@@ -79,7 +79,7 @@ Dexbotic 是原力灵机开源的视觉-语言-动作模型工具箱[1]。它要
 
 第三，**统一的数据格式 Dexdata**。不同机器人的数据都转成同一种格式：每一集一个 jsonl 标注文件，逐帧记录关节状态、动作和指令，画面仍然引用原来的视频文件。第 6 节会亲手做一次这种转换。
 
-DM0.5 和 DW0.5 都在 Dexbotic 里：本工作坊用的版本把原力灵机的 DM0.5 工具箱与 DW0.5 世界模型[2][3]合并进同一个框架，并加上了 SO-101 这台机器人的数据转换、训练与评测。
+DM0.5 和 DW0.5 都在 Dexbotic 里：本工作坊用的版本把原力灵机的 DM0.5 工具箱与 DW0.5 世界模型[2][3]合并进同一个框架，并在 `dexbotic.so101` 里加上了 SO-101 这台机器人的一整套入口：下载、数据转换、推理服务、控制循环、DW0.5 推演和单卡微调。今天用到的命令都是 `python -m dexbotic.so101.<入口名>` 的形式。
 
 ## 2.2 三步安装
 
@@ -98,15 +98,15 @@ cd Xbotics-Dexmal-Workshop
 uv sync
 
 # 第二步：下权重（两份微调权重，加上 DW0.5 推理要用的基座组件）
-uv run python -m dexmal_workshop.download --weights
+uv run python -m dexbotic.so101.download --weights
 
 # 第三步：下数据（第 6 节才用，可以先跳过）
-uv run python -m dexmal_workshop.download --data
+uv run python -m dexbotic.so101.download --data
 ```
 
 `uv sync` 把 Dexbotic、LeRobot 以及 LeRobot 所依赖的仿真器从各自的 GitHub 仓按固定版本装进同一个环境，同时装好 PyTorch 等依赖；这几个项目之间的版本冲突教学仓已经处理好，学员不需要管。权重和数据都放在 `~/so101_workspace/` 下，设环境变量 `SO101_ROOT` 可以换到别处。现场的机器已经提前装好、下好，三步都是课后在自己机器上复现时才需要。
 
-之后所有命令都在教学仓目录下用 `uv run` 执行，它会自动使用刚才装好的环境。装好之后，Dexbotic、仿真器和本工作坊的代码都可以直接 `import`，第 3.4 节就会用到。
+之后所有命令都在教学仓目录下用 `uv run` 执行，它会自动使用刚才装好的环境。教学仓本身不是一个 Python 包，它只负责把环境装好，外加讲义和一个演示脚本；真正的代码都在两个通用的包里：模型与实验入口在 Dexbotic，机器人接口在 LeRobot。换一台机器人、换一个模型，用的仍是这两个包，教学仓里没有需要跟着改的代码。装好之后，Dexbotic、LeRobot 和仿真器都可以直接 `import`，第 3.4 节就会用到。
 
 ## 2.3 本节小结
 
@@ -133,13 +133,13 @@ SO-101 是一台桌面级单臂机械臂，五个关节加一个夹爪。它的�
 
 ## 3.2 仿真器
 
-仿真器基于 ManiSkill3[4] 搭建，和真机用同一份机器人模型文件，物体尺寸、运动速度、相机位置与内参、关节名称和单位都按真机标定，所以仿真里录的数据能和真机数据混进同一次训练（第 6 节）。它做了三个抓放场景。命令里用第二列的名字选场景：
+仿真器基于 ManiSkill3[4] 搭建，和真机用同一份机器人模型文件，物体尺寸、运动速度、相机位置与内参、关节名称和单位都按真机标定，所以仿真里录的数据能和真机数据混进同一次训练（第 6 节）。它做了三个抓放场景。命令里用 `--robot.task=<注册名>` 选场景，录像文件名里用简称：
 
-| 场景 | 命令里的名字 | 难点 |
-| --- | --- | --- |
-| 4 cm 方块 | `cube40` | 基础场景 |
-| 2 cm 方块 | `cube20` | 物体小，夹持余量少，稍一偏就滑出 |
-| 罐子 | `cylinder40` | 圆面，接触点少，夹歪了容易转 |
+| 场景 | 注册名 | 简称 | 难点 |
+| --- | --- | --- | --- |
+| 4 cm 方块 | `SO101PickPlaceCube40-v1` | `cube40` | 基础场景 |
+| 2 cm 方块 | `SO101PickPlaceCube20-v1` | `cube20` | 物体小，夹持余量少，稍一偏就滑出 |
+| 罐子 | `SO101PickPlaceCylinder40-v1` | `cylinder40` | 圆面，接触点少，夹歪了容易转 |
 
 每一局里物体和料箱的位置随机摆放。成功与否由仿真器自己判定：物体的水平位置落在料箱开口范围内、机械臂没有碰着物体、机械臂没有碰着料箱、机械臂已经静止，四条同时满足才算。
 
@@ -154,32 +154,66 @@ SO-101 是一台桌面级单臂机械臂，五个关节加一个夹爪。它的�
 
 真机由 LeRobot 自带的 SO-101 驱动实现这两个操作；仿真器则把自己注册成 LeRobot 里一种叫 `so101_sim` 的机器人，也实现这两个操作，这正是它作为 LeRobot 依赖装进来的原因。两边的键名、单位完全一样，于是后面的控制程序只写一份：在仿真里跑通的代码，换一个参数就能驱动真机。这里只把 LeRobot 当成机器人的硬件接口来用，模型和推理服务都来自 Dexbotic。
 
-## 3.4 动手：让仿真里的机械臂动一动
+## 3.4 动手：用 LeRobot 连上机械臂
 
-```bash
-uv run python -m dexmal_workshop.hello_sim
-```
-
-这个脚本造出一台仿真的 SO-101，读一帧观测，然后在 3 秒里让手腕左右转一个来回、夹爪开合两次，把两路画面存成录像 `hello_sim.mp4`。自己在 Python 里试，只要几行（用 `uv run python` 进入交互环境）：
+仿真和真机都用 LeRobot 的同一个函数 `make_robot_from_config` 造出来，差别只在传给它的配置：仿真给 `SO101SimRobotConfig`，真机给 LeRobot 自带的 `SOFollowerRobotConfig`。先在仿真里试（用 `uv run python` 进入交互环境）：
 
 ```python
-from dexmal_workshop.robots import make_sim
+import so101_sim.config_lerobot_robot       # 注册 so101_sim 这种机器人
+from lerobot.robots import make_robot_from_config
+from so101_sim.config_lerobot_robot import SO101SimRobotConfig
 
-robot = make_sim("cube40")                 # 一台由仿真扮演的 SO-101
+robot = make_robot_from_config(SO101SimRobotConfig(task="SO101PickPlaceCube40-v1"))
 robot.connect()
-obs = robot.get_observation()              # 六个关节读数 + 两路画面
+obs = robot.get_observation()               # 六个关节读数 + 两路画面
 print({k: round(obs[k], 1) for k in robot.action_features})
 target = {k: obs[k] for k in robot.action_features}
-target["wrist_roll.pos"] += 30             # 手腕的目标转 30 度
-for _ in range(30):                        # 每次 send_action 只走一步（1/30 秒），连发 30 步
+target["wrist_roll.pos"] += 30              # 手腕的目标转 30 度
+for _ in range(30):                         # 仿真里一次 send_action 走一步，连发 30 步
     robot.send_action(target)
 print(robot.get_observation()["wrist_roll.pos"])
 robot.disconnect()
 ```
 
+真机也是这样连的，只换第一步的配置。串口、臂的名字和两路相机要写清楚：
+
+```python
+from lerobot.cameras.opencv import OpenCVCameraConfig
+from lerobot.robots import make_robot_from_config
+from lerobot.robots.so_follower import SOFollowerRobotConfig
+
+def camera(index):
+    return OpenCVCameraConfig(index_or_path=index, width=640, height=480, fps=30)
+
+robot = make_robot_from_config(SOFollowerRobotConfig(
+    port="/dev/ttyACM0",                    # 机械臂的串口（第 8.2 节教怎么找）
+    id="my_so101",                          # 这台臂的名字，LeRobot 按它找标定文件
+    cameras={"top": camera(0), "wrist": camera(2)},
+    use_degrees=True,                       # 关节读数用度，和训练数据一致
+    max_relative_target=5,                  # 每步每个关节最多走 5 度，安全保险
+))
+# 之后的 connect / get_observation / send_action / disconnect 与上面一字不差
+```
+
+两段代码之后的部分完全相同，这就是第 3.3 节说的“一个接口驱动两种机器人”。唯一的区别在节拍：仿真里每调用一次 `send_action` 就前进一步，真机则是真实时间在走，要按每秒 30 次的节拍下发。
+
+教学仓里的演示脚本 `examples/hello_robot.py` 把上面这些包成了一条命令，机器人的配置用 LeRobot 命令行的写法给出（与 LeRobot 自带的 `lerobot-calibrate`、`lerobot-record` 等命令相同）：
+
+```bash
+# 仿真
+uv run python examples/hello_robot.py --robot.type=so101_sim
+# 真机：同一个脚本，只换 --robot.* 这组参数
+uv run python examples/hello_robot.py --robot.type=so101_follower \
+    --robot.port=/dev/ttyACM0 --robot.id=my_so101 \
+    --robot.use_degrees=true --robot.max_relative_target=5 \
+    --robot.cameras="{top: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}"
+```
+
+它读一帧观测、打印六个关节的读数，然后在 3 秒里让手腕左右转一个来回、夹爪开合两次，把两路画面并排存成录像 `hello_robot.mp4`。
+
 ![仿真里的 SO-101 转动手腕、开合夹爪：上行为顶视相机，下行为腕部相机](figures/fig-03-hello-sim.png){width=100%}
 
-图 4 是录像中的几帧。腕部相机随手腕一起转，所以下行画面整体旋转；夹爪张开又合上。运行时脚本还会打印六个关节的读数和这个场景的任务指令，可以对照 3.1 节看看每个数的含义。
+图 4 是仿真录像中的几帧。腕部相机随手腕一起转，所以下行画面整体旋转；夹爪张开又合上。可以对照 3.1 节看看打印出来的每个数是什么含义。
 
 ## 3.5 本节小结
 
@@ -226,21 +260,25 @@ DM0 的回答是“**具身原生**”（Embodied-Native）：从预训练的第
 
 **动作专家怎么“读”主干。** 动作专家和大语言模型层数相同（都是 34 层）。第 $i$ 层里，动作专家的每个动作 token 不仅互相做注意力，还能看到主干第 $i$ 层对画面、指令、状态算出的键和值（K/V）；反过来，主干看不到动作 token。这种单向、逐层的连接带来一个好处：主干对一帧观测只需要算一遍，把各层的 K/V 缓存下来，动作专家接下来的 10 步迭代都复用这份缓存，推理就快得多。
 
-**流匹配：从噪声推出动作。** 动作专家不是一步回归出动作，而是用**流匹配**（flow matching）一步步“推”出来。记真实的动作块为 $a$（50×32 的矩阵），$\varepsilon$ 为同样大小的标准高斯噪声，$t \in [0,1]$ 表示“噪声程度”。训练时随机抽一个 $t$，把两者按比例混合：
+**流匹配：从噪声推出动作。** 动作专家不是一步回归出动作，而是用**流匹配**（flow matching）一步步“推”出来。先看一个二维的小例子（图 7）：左边是一团标准高斯噪声，右边是想要生成的数据分布（这里是棋盘格）。流匹配学的是一个“速度场”，告诉每个点该往哪个方向走；从噪声出发沿着速度场走完全程，点就落到了数据分布上。中间三格是走到一半时点的分布：结构不是最后一步突然冒出来的，而是一点点显形。
+
+![流匹配的概率路径：五格从左到右是 $t=0$、0.25、0.5、0.75、1，$t=0$ 是标准高斯噪声，$t=1$ 是数据分布（棋盘格），中间三格是 $x_t=(1-t)\,\varepsilon+t\,x$ 的分布（图取自 Xbotics 21 讲第 10 讲）](figures/fig-13-flow-matching-path.png){width=100%}
+
+对 DM0.5 来说，“数据”就是真实的动作块 $a$（50×32 的矩阵）。记 $\varepsilon$ 为同样大小的标准高斯噪声，$t \in [0,1]$ 表示走到了哪里。训练时随机抽一个 $t$，把两者按比例混合：
 
 $$
-x_t = t\,\varepsilon + (1-t)\,a
+x_t = (1-t)\,\varepsilon + t\,a
 $$
 
-$t=1$ 时 $x_t$ 是纯噪声，$t=0$ 时就是真实动作。网络 $v_\theta$ 看着 $x_t$、$t$ 和主干的 K/V，要预测从动作指向噪声的“速度” $\varepsilon - a$，损失是两者的均方误差：
+$t=0$ 时 $x_t$ 是纯噪声，$t=1$ 时就是真实动作，和图里的方向一致。网络 $v_\theta$ 看着 $x_t$、$t$ 和主干的 K/V，要预测从噪声指向动作的“速度” $a - \varepsilon$（也就是这条直线路径的方向），损失是两者的均方误差：
 
 $$
-\mathcal{L} = \big\| v_\theta(x_t, t) - (\varepsilon - a) \big\|^2
+\mathcal{L} = \big\| v_\theta(x_t, t) - (a - \varepsilon) \big\|^2
 $$
 
-推理时反过来走：从一段纯噪声 $x_1$ 出发，把 $[0,1]$ 分成 10 小段，每一步沿预测的速度往回退一小段，$x_{t-\Delta t} = x_t - \Delta t \cdot v_\theta(x_t, t)$，走到 $t=0$ 就得到 50 步动作。直观地说，每一步都把这段“动作”往更合理的方向推一点。
+这正是 DM0 论文里动作专家的训练目标[8]。推理时从一段纯噪声 $x_0$ 出发，把 $[0,1]$ 分成 10 小段，每一步沿预测的速度往前走一小段，$x_{t+\Delta t} = x_t + \Delta t \cdot v_\theta(x_t, t)$，走到 $t=1$ 就得到 50 步动作。直观地说，每一步都把这段“动作”往更合理的方向推一点，和图里那团点一步步变成棋盘格是同一回事。
 
-**时间怎么告诉网络。** 同一个网络要在不同的 $t$ 下做不同的事（$t$ 大时只需给出大致方向，$t$ 小时要修细节），所以每一步都要告诉它当前的 $t$。DM0.5 的做法是把 $t$ 编码成一个向量，再经过每一层专门的**时间调制层**，算出这一层归一化之后的缩放、平移和门控系数（称为 adaRMS）。第 7 节 LoRA 微调时，这些时间调制层是整体放开训练的。
+**时间怎么告诉网络。** 同一个网络要在不同的 $t$ 下做不同的事（$t$ 小、离噪声近时只需给出大致方向，$t$ 大、接近动作时要修细节），所以每一步都要告诉它当前的 $t$。DM0.5 的做法是把 $t$ 编码成一个向量，再经过每一层专门的**时间调制层**，算出这一层归一化之后的缩放、平移和门控系数（称为 adaRMS）。第 7 节 LoRA 微调时，这些时间调制层是整体放开训练的。
 
 我们用 SO-101 的仿真与真机数据对 DM0.5 做了 LoRA 微调，发布为 `Harrysunshine/so101-dm05-lora-sim-real-10task`。
 
@@ -270,18 +308,19 @@ DM0.5 以推理服务的形式运行：它监听一个网络端口，收到一�
 先在一个终端起推理服务（第一次运行会下载 DM0.5 的基座权重，要几分钟）：
 
 ```bash
-uv run python -m dexmal_workshop.serve
+uv run python -m dexbotic.so101.serve
 ```
 
 服务就绪后，在另一个终端跑 10 局 4 cm 方块，再给录像加上标注：
 
 ```bash
-uv run python -m dexmal_workshop.rollout --robot sim --scenes cube40 --episodes 10 --out out/rollout
-uv run python -m dexmal_workshop.label_videos \
+uv run python -m dexbotic.so101.rollout --robot.type=so101_sim \
+    --robot.task=SO101PickPlaceCube40-v1 --episodes=10 --out=out/rollout
+uv run python -m dexbotic.so101.label_videos \
     --rollout-dir out/rollout --out out/labeled
 ```
 
-`out/rollout/rollout_dm05.json` 里是成功局数，`out/labeled/` 里是顶视与腕部并排、顶上写明成败的录像。图 7 是发布的模型在 2 cm 方块场景里的一局成功示例：它先把夹爪移到方块上方，下降合拢，再抬起平移到料箱上方。
+`--robot.*` 这组参数就是第 3.4 节那段配置的命令行写法。换场景只改 `--robot.task`，几次运行写进同一个 `--out` 时结果按场景合并。`out/rollout/rollout_dm05.json` 里是成功局数，`out/labeled/` 里是顶视与腕部并排、顶上写明成败的录像。图 8 是发布的模型在 2 cm 方块场景里的一局成功示例：它先把夹爪移到方块上方，下降合拢，再抬起平移到料箱上方。
 
 ![DM0.5 在仿真里抓放 2 cm 方块的一局：上行顶视相机，下行腕部相机](figures/fig-04-dm05-keyframes.png){width=100%}
 
@@ -307,7 +346,7 @@ DW0.5 是原力灵机发布的世界模型[3]。**世界模型**要回答的问�
 
 ![DW0.5 的整体结构：语言、图像、视频、机器人类型和动作作为输入，经生成式主干与三个专家，输出未来视频、机器人动作和状态价值（图取自 OpenDW 仓库[3]）](figures/fig-11-dw05-arch.png){width=100%}
 
-图 8 是官方给出的整体结构。它把三件事放进一个模型：预测未来视频（视频专家）、生成动作（动作专家）、估计当前状态有多好（价值专家，官方说明将在之后的版本发布，目前开源的代码里只有前两个专家）。下面分几层看它怎么做到。
+图 9 是官方给出的整体结构。它把三件事放进一个模型：预测未来视频（视频专家）、生成动作（动作专家）、估计当前状态有多好（价值专家）。下面分几层看它怎么做到。
 
 **主干：一个视频生成模型。** 视频专家就是开源的 Wan2.2-TI2V-5B 视频生成模型[6]，一个 30 层、宽 3072 的扩散 Transformer。直接在像素上生成视频太贵，所以它先用一个变分自编码器（VAE）把视频压缩成**潜变量**：空间上每 16×16 个像素压成一个位置，时间上每 4 帧压成一帧（第一帧单独压一帧）。本工作坊里每一轮处理 9 帧画面，压完只剩 3 帧潜变量：第一帧潜变量对应已知的起始画面，后两帧各对应 4 帧要预测的未来。
 
@@ -349,7 +388,7 @@ $$
 DM0.5 的推理服务约占 12 GB 显存，DW0.5 推演约占 26 GB，一张 32 GB 的卡放不下两个，所以先在第一个终端按 Ctrl-C 停掉推理服务，再运行：
 
 ```bash
-uv run python -m dexmal_workshop.imagine --rollout-dir out/rollout --out out/imagine
+uv run python -m dexbotic.so101.imagine --rollout-dir out/rollout --out out/imagine
 ```
 
 它读第 4.4 节跑出的轨迹：每一局都存下了逐帧的两路录像和逐步的关节状态，这些轨迹 DW0.5 训练时从没见过。喂给它的“真实动作”，是轨迹里每一步之后实际到达的关节状态。它从每个跑过的场景取 2 条轨迹——按第 4.4 节的命令只跑了 4 cm 方块，所以就是 2 条——每条从起始画面起连推 3 轮、共 96 步。三种动作各自的 PSNR 写在 `out/imagine/dw05_sim_check.json` 里，三行对照视频也在 `out/imagine/` 下，建议对着视频看数字。
@@ -366,7 +405,7 @@ uv run python -m dexmal_workshop.imagine --rollout-dir out/rollout --out out/ima
 
 ![DW0.5 推演未来的三组对照：仿真真值、按真实动作推演、按倒放的同一串动作推演；每组上一行为顶视、下一行为腕部](figures/fig-05-dw05-compare.png){width=100%}
 
-图 9 是其中一条 4 cm 方块轨迹。三轮连推共 24 帧新画面，图中按总帧号标出五个时刻。中间一组和最上面的真实画面几乎一致：手臂向前下方伸向方块的时机和姿态都对得上，腕部视角里方块出现在夹爪前方的位置也一样。最下面一组给的是倒放的动作：手臂几乎停在原处，没有伸向方块，腕部视角里方块也不见了。
+图 10 是其中一条 4 cm 方块轨迹。三轮连推共 24 帧新画面，图中按总帧号标出五个时刻。中间一组和最上面的真实画面几乎一致：手臂向前下方伸向方块的时机和姿态都对得上，腕部视角里方块出现在夹爪前方的位置也一样。最下面一组给的是倒放的动作：手臂几乎停在原处，没有伸向方块，腕部视角里方块也不见了。
 
 ## 5.4 本节小结
 
@@ -387,15 +426,15 @@ DM0.5 与 DW0.5 用的是同一份训练数据，由两份公开数据集拼成�
 
 ![12 个任务各一帧顶视画面：第一行前三格是仿真的三个场景，其余九格是真机的九个任务](figures/fig-07-datasets.png){width=100%}
 
-图 10 是 12 个任务各取一集、机械臂刚起步时的顶视画面。仿真画面干净、背景单一，真机画面有光照、阴影和桌面杂物；但两边的机械臂、相机位置和料箱大小都一样，这是它们能混在一起训练的前提。
+图 11 是 12 个任务各取一集、机械臂刚起步时的顶视画面。仿真画面干净、背景单一，真机画面有光照、阴影和桌面杂物；但两边的机械臂、相机位置和料箱大小都一样，这是它们能混在一起训练的前提。
 
 两份数据都是 LeRobot 格式：一“集”是一次从摆好物体到任务结束的完整录制；画面按相机分别存成视频文件，许多集共用一个视频文件，另有表格文件逐帧记录关节状态、动作和时间戳。混合之前要逐项确认它们真的是“同一种数据”：分辨率、帧率、关节单位、夹爪的数值定义都一致。混进一份分辨率不同的数据，训练照样能跑、损失照样下降，只是模型学到的是两种互不相干的画面。
 
 ## 6.2 下载与转换
 
 ```bash
-uv run python -m dexmal_workshop.download --data      # 两份数据集
-uv run python -m dexmal_workshop.prepare_data         # 转成 Dexdata
+uv run python -m dexbotic.so101.download --data       # 两份数据集
+uv run python -m dexbotic.so101.prepare_data          # 转成 Dexdata
 ```
 
 下载命令把两份数据放到 `~/so101_workspace/datasets/`，每份都钉死了版本：数据换了版本，训练结果就不可比。转换命令把仿真三个场景和真机九个任务转进同一份 Dexdata：每一集一个 jsonl 文件，共 3698 个；每一行是一帧，记着这一帧的关节状态、动作、指令，以及两路画面在原视频里的位置。下面是仿真 4 cm 方块第 0 集的第一行（数字保留一位小数，省去了其余字段）：
@@ -410,7 +449,7 @@ uv run python -m dexmal_workshop.prepare_data         # 转成 Dexdata
 
 `images_1` 是顶视、`images_2` 是腕部，这就是第 4.3 节说的相机顺序在数据里的样子；`frame_idx` 是这一帧在视频文件里的位置；`state` 与 `action` 都是六维，前五个是关节角度，最后一个是夹爪开合。
 
-把这一集的 379 行按时间排开，就是 图 11：上面两行是五个时刻的顶视与腕部画面，下面是逐帧的关节状态，虚线标出画面所在的时刻。
+把这一集的 379 行按时间排开，就是图 12：上面两行是五个时刻的顶视与腕部画面，下面是逐帧的关节状态，虚线标出画面所在的时刻。
 
 ![仿真 4 cm 方块第 0 集：五个时刻的两路画面，以及同一集逐帧的关节角和夹爪开合](figures/fig-08-episode.png){width=100%}
 
@@ -450,22 +489,23 @@ LoRA[7] 的做法是冻住原模型的权重，在每个选中的线性层旁边
 训练前先停掉第 4、5 节的推理服务和推演，训练要用整张卡：
 
 ```bash
-uv run python -m dexmal_workshop.train_lora --gpu 0
+uv run python -m dexbotic.so101.train_lora --gpu 0
 ```
 
 ![单卡 LoRA 现场配方的训练损失：灰线为逐步损失，蓝线为滑动平均](figures/fig-06-lora-loss.png){width=80%}
 
-图 12 是实测的训练损失：从约 0.26 很快降到 0.1 以下，最后稳定在约 0.05。
+图 13 是实测的训练损失：从约 0.26 很快降到 0.1 以下，最后稳定在约 0.05。
 
 训练完，脚本自动用第 300 步的检查点（检查点就是训练途中保存下来的一份权重）做一次**开环自检**：从训练数据里取几个时刻，把那一刻的画面和状态喂给模型，只比较它预测的动作和数据里真实的后续动作差多少，不让它去驱动机器人；再和一个最朴素的参照比——“保持当前姿态不动”。结果在 `~/so101_workspace/runs/lora_single_gpu/openloop.json`。300 步只是入门，本讲实测模型的误差（9.7）与“保持不动”（9.4）处在同一水平；要明显低于这个参照，需要更长的训练，发布的模型训了 5000 步。
 
 最后把自己训出的模型部署到仿真里看一看——这和第 4.4 节是同一套命令，只是推理服务换成自己的检查点：
 
 ```bash
-uv run python -m dexmal_workshop.serve \
+uv run python -m dexbotic.so101.serve \
     --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300
-uv run python -m dexmal_workshop.rollout --robot sim --scenes cube40 --episodes 3 \
-    --label my_lora --out out/my_model
+uv run python -m dexbotic.so101.rollout --robot.type=so101_sim \
+    --robot.task=SO101PickPlaceCube40-v1 --episodes=3 \
+    --label=my_lora --out=out/my_model
 ```
 
 300 步的模型还比较粗糙：我们准备工作坊时用同一配方训过一次，在 4 cm 方块上跑 20 局成功 2 局。真机上建议仍用发布的权重。
@@ -478,15 +518,17 @@ LoRA 只训 5.27% 的参数，一张 32 GB 的卡就能微调 DM0.5。现场配�
 
 ## 8.1 同一个控制循环
 
-真机部署用的是第 4 节同一个控制循环，只把 `--robot sim` 换成 `--robot real`，并告诉它串口、两路相机的设备号和这台臂的名字：
+真机部署用的是第 4 节同一个控制循环，只把 `--robot.*` 这组参数换成真机的配置（和第 3.4 节真机那段代码一一对应）：串口、这台臂的名字、关节用度、每步的安全上限，以及两路相机的设备号：
 
 ```bash
-uv run python -m dexmal_workshop.rollout --robot real --port /dev/ttyACM0 \
-    --top-camera 0 --wrist-camera 2 --robot-id my_so101 \
-    --prompt "Pick up a cube and place in the bin" --episodes 3 --out out/real
+uv run python -m dexbotic.so101.rollout \
+    --robot.type=so101_follower --robot.port=/dev/ttyACM0 --robot.id=my_so101 \
+    --robot.use_degrees=true --robot.max_relative_target=5 \
+    --robot.cameras="{top: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}" \
+    --prompt="Pick up a cube and place in the bin" --episodes=3 --out=out/real
 ```
 
-控制循环通过 LeRobot 的 SO-101 驱动读关节、下发目标，关节读数用度，和训练数据的单位一致。每一局开始前，程序等操作者把物体摆好、手离开工作区后按回车；每局结束时由操作者判定成败。真机上还多一道保险：每一步每个关节相对当前读数最多只走 5 度（或 5 个行程百分点），模型给出离谱的目标时，手臂也只会小步移动。
+控制循环通过 LeRobot 的 SO-101 驱动读关节、下发目标，关节读数用度，和训练数据的单位一致。每一局开始前，程序等操作者把物体摆好、手离开工作区后按回车；每局结束时由操作者判定成败。真机上还多一道保险：`--robot.max_relative_target=5` 让每一步每个关节相对当前读数最多只走 5 度（或 5 个行程百分点），模型给出离谱的目标时，手臂也只会小步移动。忘了写这一项、或者没写 `--robot.use_degrees=true`，程序会在连接机械臂之前就停下并提示。
 
 ## 8.2 上机前准备
 
@@ -538,8 +580,8 @@ uv run lerobot-calibrate --robot.type=so101_follower --robot.port=/dev/ttyACM0 -
 
 代码（均在 GitHub 的 `Xbotics-Embodied-AI-club` 组织下）：
 
-- 教学仓 `Xbotics-Dexmal-Workshop`
-- 模型框架 `dexbotic`，提交 3f2bc6b
+- 教学仓 `Xbotics-Dexmal-Workshop`（不是 Python 包：只声明环境，外加讲义与演示脚本 `examples/hello_robot.py`）
+- 模型框架 `dexbotic`，提交 b630bdf
 - 仿真器 `Xbotics-SO101-Sim`，提交 1510eee
 - 机器人接口 `lerobot`，提交 9381726
 
@@ -553,7 +595,7 @@ uv run lerobot-calibrate --robot.type=so101_follower --robot.port=/dev/ttyACM0 -
 - 发布的 DM0.5：Hugging Face `Harrysunshine/so101-dm05-lora-sim-real-10task`
 - 发布的 DW0.5：Hugging Face `Harrysunshine/so101-dw05-sim-real-10task`
 
-DW0.5 推演结果、显存实测与训练损失的原始数据在教学仓 `lecture/data/` 下，出图脚本在 `lecture/figures_src/`。图 5、图 6 取自 DM0 论文[8]，图 8 取自 OpenDW 仓库[3]，图 3 是星禾套件实拍，这四张没有出图脚本。
+DW0.5 推演结果、显存实测与训练损失的原始数据在教学仓 `lecture/data/` 下，出图脚本在 `lecture/figures_src/`。图 5、图 6 取自 DM0 论文[8]，图 7 取自 Xbotics 21 讲第 10 讲，图 9 取自 OpenDW 仓库[3]，图 3 是星禾套件实拍，这五张没有出图脚本。
 
 # 参考文献
 

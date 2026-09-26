@@ -802,7 +802,7 @@ wheels = [
 [[package]]
 name = "dexbotic"
 version = "0.2.0"
-source = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git?rev=3f2bc6bb86a11e0b070e39ee226251c4d3b04f63#3f2bc6bb86a11e0b070e39ee226251c4d3b04f63" }
+source = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git?rev=b630bdf8583e376f7020333fe23fa93052dd7465#b630bdf8583e376f7020333fe23fa93052dd7465" }
 dependencies = [
     { name = "accelerate" },
     { name = "albumentations" },
@@ -863,6 +863,7 @@ dependencies = [
 
 [package.optional-dependencies]
 so101-sim = [
+    { name = "lerobot", extra = ["feetech"] },
     { name = "so101-sim" },
 ]
 
@@ -3837,7 +3838,7 @@ wheels = [
 [[package]]
 name = "xbotics-dexmal-workshop"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "dexbotic", extra = ["so101-sim"] },
     { name = "flash-attn" },
@@ -3861,7 +3862,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dexbotic", extras = ["so101-sim"], git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git?rev=3f2bc6bb86a11e0b070e39ee226251c4d3b04f63" },
+    { name = "dexbotic", extras = ["so101-sim"], git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git?rev=b630bdf8583e376f7020333fe23fa93052dd7465" },
     { name = "flash-attn", url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.1/flash_attn-2.8.1+cu12torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" },
     { name = "hydra-core", specifier = ">=1.3.0" },
     { name = "imageio" },
