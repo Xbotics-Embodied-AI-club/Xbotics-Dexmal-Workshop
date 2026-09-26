@@ -7,7 +7,7 @@
 import figstyle
 import matplotlib.pyplot as plt
 import numpy as np
-from frames import MEDIA, read_frames, save
+from dexbotic.so101.client import read_frames
 
 BANNER = 44
 VIEW_H, VIEW_W = 480, 640
@@ -16,7 +16,7 @@ TIMES = 6
 
 def main() -> None:
     font = figstyle.apply()
-    frames = read_frames(MEDIA / "dm05_cube20_success.mp4")
+    frames = read_frames(figstyle.MEDIA / "dm05_cube20_success.mp4")
     # 裁图按固定的横幅高与画面尺寸算；视频重出后尺寸一变，裁出来会悄悄错位，所以先核对。
     # 编码时高度补齐到 16 的倍数，底下多出几行空白，所以高度只要求放得下。
     assert frames.shape[2] == 2 * VIEW_W and frames.shape[1] >= BANNER + VIEW_H, frames.shape
@@ -37,7 +37,7 @@ def main() -> None:
             if col == 0:
                 ax.set_ylabel(rows[row], fontsize=11)
     fig.subplots_adjust(wspace=0.03, hspace=0.05)
-    save(fig, "fig-04-dm05-keyframes.png", font)
+    figstyle.save(fig, "fig-04-dm05-keyframes.png", font)
 
 
 if __name__ == "__main__":

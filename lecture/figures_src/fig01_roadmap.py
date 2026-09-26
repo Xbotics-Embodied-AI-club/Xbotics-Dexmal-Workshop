@@ -2,7 +2,6 @@
 
 import figstyle
 import matplotlib.pyplot as plt
-from frames import save
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 MORNING = [
@@ -60,7 +59,7 @@ def main() -> None:
         ax.text(0.01, y + H / 2, label, ha="left", va="center", fontsize=10.5)
     row(ax, MORNING, 0.6, dashed=False)
     row(ax, AFTERNOON, 0.1, dashed=True)
-    save(fig, "fig-01-roadmap.png", font)
+    figstyle.save(fig, "fig-01-roadmap.png", font)
 
 
 if __name__ == "__main__":

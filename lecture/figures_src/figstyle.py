@@ -9,7 +9,7 @@
 独立克隆本仓的人跑出图脚本会看到一句说明并中止，**这是正确行为，不是 bug** ——
 悄悄回落到系统字体只会渲出一批字体不对却看不出来的图。
 
-所有出图脚本 import 本模块并调用 apply() 即可。
+所有出图脚本 import 本模块并调用 apply()，出图用 save() 存；讲义用到的几个目录也在这里。
 """
 
 import os
@@ -22,6 +22,10 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 
 ENV_VAR = "XBOTICS_FIG_FONT"
+LECTURE = Path(__file__).resolve().parents[1]
+MEDIA = LECTURE.parent / "media"
+FIGURES = LECTURE / "figures"
+DATA = LECTURE / "data"
 
 _MISSING = f"""出图字体没配好，已中止（没有回落到系统字体，那样会渲出一批看不出错的错图）。
 
@@ -84,6 +88,14 @@ def apply() -> str:
     plt.rcParams["axes.unicode_minus"] = False
     plt.rcParams["mathtext.fontset"] = "stix"  # 公式走 Times 风格
     return name
+
+
+def save(fig, name: str, font: str) -> Path:
+    """按讲义引用的文件名存图，并把字体名写进元数据，用图本身证明用的是哪套字体。"""
+    FIGURES.mkdir(exist_ok=True)
+    out = FIGURES / name
+    fig.savefig(out, dpi=200, bbox_inches="tight", metadata={"Font": font})
+    return out
 
 
 if __name__ == "__main__":

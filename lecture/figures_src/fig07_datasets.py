@@ -1,11 +1,11 @@
 """图 7、图 8：训练数据长什么样。
 
-图 7 是 12 个任务各一帧顶视画面（仿真 3 个场景 + 真机 9 个任务）；图 8 是一集仿真数据：
+图 7 是 12 个数据来源各一帧顶视画面（仿真 3 个场景 + 真机 9 个任务）；图 8 是一集仿真数据：
 上面几帧画面，下面是同一集逐帧的关节状态，竖线标出画面所在的时刻。
 
 两张图都从转换好的 Dexdata 读：每集一个 jsonl，每行一帧，记着状态和画面在原视频里的位置。
-数据目录取 `dexbotic.so101.layout.DATASETS_DIR`（设 `SO101_DATASETS_DIR` 可以指到别处），
-先运行过 `download --data` 与 `prepare_data` 才有。
+数据目录与训练读的是同一处（`dexbotic.so101.dm05_exp.DM05DataConfig`，设 `SO101_DATASETS_DIR`
+可以指到别处），先运行过 `scripts/download.py --data` 与 `scripts/prepare_data.py` 才有。
 """
 
 import json
@@ -15,11 +15,11 @@ from pathlib import Path
 import figstyle
 import matplotlib.pyplot as plt
 import numpy as np
-from dexbotic.so101.layout import DATASETS_DIR
-from frames import save
+from dexbotic.so101.dm05_exp import DM05DataConfig
 
-ROOT = Path(DATASETS_DIR)
-JSONL = ROOT / "so101-dexdata" / "jsonl"
+#: jsonl 里视频的 url 相对 image_dir。
+ROOT = Path(DM05DataConfig.image_dir)
+JSONL = Path(DM05DataConfig.jsonl_dir)
 #: 图 7 的格子：jsonl 文件名前缀 → 图上的名字。
 TASKS = {
     "sim_cube40": "仿真 · 4 cm 方块",
@@ -84,7 +84,7 @@ def task_grid(font: str) -> None:
         ax.set_xticks([])
         ax.set_yticks([])
     fig.subplots_adjust(wspace=0.04, hspace=0.18)
-    save(fig, "fig-07-datasets.png", font)
+    figstyle.save(fig, "fig-07-datasets.png", font)
 
 
 def episode(font: str) -> None:
@@ -119,7 +119,7 @@ def episode(font: str) -> None:
         for i in picks:
             ax.axvline(t[i], color="#999999", lw=0.8, ls="--")
     fig.align_ylabels([joints, gripper])
-    save(fig, "fig-08-episode.png", font)
+    figstyle.save(fig, "fig-08-episode.png", font)
 
 
 def main() -> None:

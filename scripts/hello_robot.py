@@ -13,33 +13,34 @@
 原地动作碰不到桌上的物体；两路画面并排存成录像。
 """
 
-import contextlib
 import time
 from dataclasses import dataclass
 
 import draccus
 import imageio.v3 as iio
 import numpy as np
+
+# 仿真器把自己注册成 LeRobot 里一种叫 so101_sim 的机器人；import 这一行即完成注册。
+import so101_sim.config_lerobot_robot
 from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig  # noqa: F401  注册 opencv 相机
 from lerobot.robots import RobotConfig, make_robot_from_config, so_follower  # noqa: F401  注册 so101_follower
 
-# 仿真器把自己注册成 LeRobot 里一种叫 so101_sim 的机器人；import 这一行即完成注册。
-with contextlib.suppress(ImportError):
-    import so101_sim.config_lerobot_robot  # noqa: F401
+#: 与训练数据同一帧率：真机按它下发动作，录像也按它存。
+FPS = 30
 
 
 @dataclass
 class HelloConfig:
     robot: RobotConfig
     out: str = "hello_robot.mp4"
-    #: 动作时长（秒），按 30 帧/秒下发。
+    #: 动作时长（秒）。
     seconds: float = 3.0
 
 
 @draccus.wrap()
 def main(cfg: HelloConfig) -> None:
+    is_sim = isinstance(cfg.robot, so101_sim.config_lerobot_robot.SO101SimRobotConfig)
     robot = make_robot_from_config(cfg.robot)
-    is_sim = hasattr(robot, "reset")
     robot.connect()
     try:
         obs = robot.get_observation()
@@ -47,7 +48,7 @@ def main(cfg: HelloConfig) -> None:
         print("关节读数：", {k: round(float(obs[k]), 1) for k in joints})
         print("画面：", {k: np.asarray(obs[k]).shape for k in ("top", "wrist")})
         start = np.array([obs[k] for k in joints], dtype=float)
-        steps = int(cfg.seconds * 30)
+        steps = int(cfg.seconds * FPS)
         frames = []
         for t in range(steps):
             began = time.monotonic()
@@ -56,11 +57,11 @@ def main(cfg: HelloConfig) -> None:
             target[joints.index("wrist_roll.pos")] += 30 * phase
             target[joints.index("gripper.pos")] = 50 * abs(phase)
             robot.send_action(dict(zip(joints, target.tolist(), strict=True)))
-            if not is_sim:  # 真机按 30 帧/秒的节拍下发；仿真每次 send_action 就是一步，不用等
-                time.sleep(max(0.0, 1 / 30 - (time.monotonic() - began)))
+            if not is_sim:  # 仿真每次 send_action 就是一步，不用等墙钟
+                time.sleep(max(0.0, 1 / FPS - (time.monotonic() - began)))
             obs = robot.get_observation()
             frames.append(np.concatenate([np.asarray(obs["top"]), np.asarray(obs["wrist"])], axis=1))
-        iio.imwrite(cfg.out, np.stack(frames), fps=30, codec="libx264")
+        iio.imwrite(cfg.out, np.stack(frames), fps=FPS, codec="libx264")
         print(f"录像：{cfg.out}（左顶视、右腕部）")
     finally:
         robot.disconnect()

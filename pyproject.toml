@@ -8,10 +8,10 @@ requires-python = ">=3.12,<3.13"
 # 分工：dexbotic（模型框架）与 LeRobot（机器人接口）是面向所有人的通用包；本仓放这次工作坊专属的
 # 脚本（scripts/：下载、数据转换、控制循环、录像标注、单卡微调、上手演示）和讲义。
 # 本仓不打包安装，只声明一个把两个通用包装在一起的环境，脚本直接 `uv run python scripts/...` 运行。
-# 一个环境装下训练、推理与仿真：dexbotic 的 so101-sim 附加项把仿真器一并带进来。
+# 一个环境装下训练、推理与仿真：仿真器是 LeRobot 的依赖，随它一起装上（钉版见下方 override）。
 # 以下各项钉版都是 dexbotic 自己的声明管不到、但实际运行时一旦松开就出错的地方。
 dependencies = [
-    "dexbotic[so101-sim]",
+    "dexbotic",
     # 机器人的硬件接口（HAL）：仿真与真机都走 LeRobot 的 Robot 接口，控制循环只写一份。
     # 只用它的 robots / motors / cameras 三层，不用它的策略与推理服务。
     "lerobot[feetech]",

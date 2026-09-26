@@ -10,7 +10,7 @@
 import figstyle
 import matplotlib.pyplot as plt
 import numpy as np
-from frames import MEDIA, read_frames, save
+from dexbotic.so101.client import read_frames
 
 ROW_H = 384
 LABEL_H = 26
@@ -31,7 +31,7 @@ def split(band: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 def main() -> None:
     font = figstyle.apply()
     figstyle.assert_covered("".join(ROWS + VIEWS) + "第帧", "图 5")
-    frames = read_frames(MEDIA / "dw05_imagine_cube40.mp4")
+    frames = read_frames(figstyle.MEDIA / "dw05_imagine_cube40.mp4")
     # 裁图按固定的行高与标签高算；视频重出后尺寸一变，裁出来会悄悄错位，所以先核对。
     assert frames.shape[1] == 3 * ROW_H, frames.shape
     picks = np.linspace(0, len(frames) - 1, TIMES).astype(int)
@@ -55,7 +55,7 @@ def main() -> None:
         for ax in axes[row:].flat:
             box = ax.get_position()
             ax.set_position([box.x0, box.y0 - 0.012, box.width, box.height])
-    save(fig, "fig-05-dw05-compare.png", font)
+    figstyle.save(fig, "fig-05-dw05-compare.png", font)
 
 
 if __name__ == "__main__":

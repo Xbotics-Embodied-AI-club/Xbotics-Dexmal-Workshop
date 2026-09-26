@@ -9,7 +9,7 @@
 | 用途 | 链接 |
 | --- | --- |
 | 讲义（PDF） | [lecture/pdf/dm05-dw05-workshop.pdf](lecture/pdf/dm05-dw05-workshop.pdf) |
-| 代码（本仓） | 本仓一个 `uv sync` 装好全部依赖：模型框架 [dexbotic](https://github.com/Xbotics-Embodied-AI-club/dexbotic)、仿真器 [Xbotics-SO101-Sim](https://github.com/Xbotics-Embodied-AI-club/Xbotics-SO101-Sim)、机器人接口 [LeRobot（Xbotics 维护版）](https://github.com/Xbotics-Embodied-AI-club/lerobot) |
+| 代码（本仓） | 本仓一个 `uv sync` 装好全部依赖：模型框架 [dexbotic](https://github.com/Xbotics-Embodied-AI-club/dexbotic)、机器人接口 [LeRobot（Xbotics 维护版）](https://github.com/Xbotics-Embodied-AI-club/lerobot)，以及作为 LeRobot 依赖的仿真器 [Xbotics-SO101-Sim](https://github.com/Xbotics-Embodied-AI-club/Xbotics-SO101-Sim) |
 | 权重 | [DM0.5 微调权重](https://huggingface.co/Harrysunshine/so101-dm05-lora-sim-real-10task) · [DW0.5 微调权重](https://huggingface.co/Harrysunshine/so101-dw05-sim-real-10task) |
 | 数据 | [仿真数据（Hugging Face）](https://huggingface.co/datasets/Harrysunshine/so101-sim-pickplace-v2) · [真机数据（ModelScope）](https://modelscope.cn/datasets/zhuzhuangtian/so101-pick-place-tasks) |
 
@@ -19,8 +19,8 @@
 
 ```bash
 git clone https://github.com/Xbotics-Embodied-AI-club/Xbotics-Dexmal-Workshop.git && cd Xbotics-Dexmal-Workshop
-uv sync                                                  # 一个环境装好模型、仿真器与机器人接口
-uv run python scripts/download.py --weights       # 两份微调权重 + DW0.5 推理用的基座组件
+uv sync                                      # 一个环境装好模型框架、机器人接口与仿真器
+uv run python scripts/download.py --weights   # 两份微调权重 + DW0.5 推理用的基座组件
 ```
 
 数据、权重与产物默认放在 `~/so101_workspace`，设环境变量 `SO101_ROOT` 可以换位置。

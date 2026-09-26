@@ -5,7 +5,6 @@
 
 import figstyle
 import matplotlib.pyplot as plt
-from frames import save
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 H = 0.15
@@ -72,7 +71,7 @@ def main() -> None:
             color="#555555",
             bbox={"fc": "white", "ec": "none", "pad": 1},
         )
-    save(fig, "fig-02-resources.png", font)
+    figstyle.save(fig, "fig-02-resources.png", font)
 
 
 if __name__ == "__main__":

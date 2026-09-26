@@ -20,12 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 def banner(width: int, text: str, ok: bool) -> np.ndarray:
     img = Image.new("RGB", (width, 44), (20, 110, 40) if ok else (150, 30, 30))
-    draw = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.load_default(size=24)
-    except TypeError:
-        font = ImageFont.load_default()
-    draw.text((12, 8), text, fill=(255, 255, 255), font=font)
+    ImageDraw.Draw(img).text((12, 8), text, fill=(255, 255, 255), font=ImageFont.load_default(size=24))
     return np.asarray(img)
 
 
@@ -44,12 +39,12 @@ def main() -> int:
             wrist = read_frames(top_path.with_name(top_path.stem + "_wrist.mp4"))
             top = read_frames(top_path)
             n = min(len(top), len(wrist))
-            label, _, rest = top_path.stem.partition("_")  # dm05-checkpoint-5000_cube40_ep003_success
-            scene, episode, _ = rest.rsplit("_", 2)
+            # 文件名是 <标签>_<场景>_ep<局号>_<成败>，标签里可以有下划线，所以从右往左拆。
+            label, scene, episode, _ = top_path.stem.rsplit("_", 3)
             where = "on the real SO-101" if scene == "real" else "in so101_sim"
             text = (
                 f"{label} policy rollout {where} | {scene} {episode} | "
-                f"{'SUCCESS' if kind == 'success' else 'FAIL'} | {n} steps @30fps | left: top  right: wrist"
+                f"{'SUCCESS' if kind == 'success' else 'FAIL'} | {n} steps @{args.fps}fps | left: top  right: wrist"
             )
             head = banner(top.shape[2] + wrist.shape[2], text, kind == "success")
             frames = [

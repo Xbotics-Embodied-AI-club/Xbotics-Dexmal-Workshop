@@ -3,7 +3,7 @@
     python scripts/download.py --weights    # 两份发布的权重 + DW0.5 推理用的基座组件
     python scripts/download.py --data       # 训练数据 3698 集（仿真 1498 + 真机 2200）
 
-各项钉死版本：数据换了版本，训练结果就和讲义里的不可比。
+两份训练数据钉死版本：数据换了版本，训练结果就和讲义里的不可比。权重取各仓的当前版本。
 """
 
 from __future__ import annotations

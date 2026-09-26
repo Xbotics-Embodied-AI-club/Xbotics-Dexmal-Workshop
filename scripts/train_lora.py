@@ -47,15 +47,17 @@ def wait_for_server(port: int, server: subprocess.Popen, log: pathlib.Path) -> N
 
 
 def main() -> int:
-    from dexbotic.so101.layout import DATASETS_DIR, ROOT
+    from dexbotic.exp.dm05_exp import DM05InferenceConfig
+    from dexbotic.so101.dm05_exp import DM05DataConfig
+    from dexbotic.so101.layout import RUNS_ROOT
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--gpu", default="0")
-    ap.add_argument("--out", type=pathlib.Path, default=pathlib.Path(ROOT) / "runs" / "lora_single_gpu")
-    ap.add_argument("--port", type=int, default=7891, help="开环自检时推理服务用的端口")
+    ap.add_argument("--out", type=pathlib.Path, default=pathlib.Path(RUNS_ROOT) / "lora_single_gpu")
+    ap.add_argument("--port", type=int, default=DM05InferenceConfig.port, help="开环自检时推理服务用的端口")
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
-    jsonl = pathlib.Path(DATASETS_DIR) / "so101-dexdata" / "jsonl"
+    jsonl = pathlib.Path(DM05DataConfig.jsonl_dir)
     if not jsonl.is_dir():
         raise SystemExit(f"训练数据还没转换：{jsonl} 不存在；先运行 python scripts/prepare_data.py")
     env = {**os.environ, "CUDA_VISIBLE_DEVICES": str(args.gpu), "TOKENIZERS_PARALLELISM": "false"}
@@ -65,8 +67,6 @@ def main() -> int:
         "-m",
         "torch.distributed.run",
         "--nproc_per_node=1",
-        "--master_port",
-        env.get("DM05_MASTER_PORT", "29500"),
         "-m",
         "dexbotic.so101.dm05_exp",
         "--task",
@@ -134,7 +134,7 @@ def main() -> int:
         f"开环自检结果：{args.out / 'openloop.json'}\n"
         "（模型误差与「保持不动」并列给出；300 步时两者通常处在同一水平）\n"
         "部署自己的模型：python -m dexbotic.so101.dm05_exp --task inference "
-        f"--model-config.model-name-or-path {args.out / f'checkpoint-{STEPS}'}"
+        f"--model-config.model-name-or-path {checkpoint}"
     )
     return 0
 
