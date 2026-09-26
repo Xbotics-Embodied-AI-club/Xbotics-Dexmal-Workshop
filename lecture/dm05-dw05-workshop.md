@@ -79,7 +79,7 @@ Dexbotic 是原力灵机开源的视觉-语言-动作模型工具箱[1]。它要
 
 第三，**统一的数据格式 Dexdata**。不同机器人的数据都转成同一种格式：每一集一个 jsonl 标注文件，逐帧记录关节状态、动作和指令，画面仍然引用原来的视频文件。第 6 节会亲手做一次这种转换。
 
-DM0.5 和 DW0.5 都在 Dexbotic 里：本工作坊用的版本把原力灵机的 DM0.5 工具箱与 DW0.5 世界模型[2][3]合并进同一个框架，并在 `dexbotic.so101` 里加上了 SO-101 这台机器人的一整套入口：下载、数据转换、推理服务、控制循环、DW0.5 推演和单卡微调。今天用到的命令都是 `python -m dexbotic.so101.<入口名>` 的形式。
+DM0.5 和 DW0.5 都在 Dexbotic 里：本工作坊用的版本把原力灵机的 DM0.5 工具箱与 DW0.5 世界模型[2][3]合并进同一个框架，并在 `dexbotic.so101` 里加上了 SO-101 这台机器人的实验配置、数据转换和评测工具。这些和其他机器人的支持一样，是框架面向所有用户的一部分。
 
 ## 2.2 三步安装
 
@@ -98,15 +98,15 @@ cd Xbotics-Dexmal-Workshop
 uv sync
 
 # 第二步：下权重（两份微调权重，加上 DW0.5 推理要用的基座组件）
-uv run python -m dexbotic.so101.download --weights
+uv run python scripts/download.py --weights
 
 # 第三步：下数据（第 6 节才用，可以先跳过）
-uv run python -m dexbotic.so101.download --data
+uv run python scripts/download.py --data
 ```
 
 `uv sync` 把 Dexbotic、LeRobot 以及 LeRobot 所依赖的仿真器从各自的 GitHub 仓按固定版本装进同一个环境，同时装好 PyTorch 等依赖；这几个项目之间的版本冲突教学仓已经处理好，学员不需要管。权重和数据都放在 `~/so101_workspace/` 下，设环境变量 `SO101_ROOT` 可以换到别处。现场的机器已经提前装好、下好，三步都是课后在自己机器上复现时才需要。
 
-之后所有命令都在教学仓目录下用 `uv run` 执行，它会自动使用刚才装好的环境。教学仓本身不是一个 Python 包，它只负责把环境装好，外加讲义和一个演示脚本；真正的代码都在两个通用的包里：模型与实验入口在 Dexbotic，机器人接口在 LeRobot。换一台机器人、换一个模型，用的仍是这两个包，教学仓里没有需要跟着改的代码。装好之后，Dexbotic、LeRobot 和仿真器都可以直接 `import`，第 3.4 节就会用到。
+之后所有命令都在教学仓目录下用 `uv run` 执行，它会自动使用刚才装好的环境。这里的分工是：Dexbotic（模型框架）和 LeRobot（机器人接口）是面向所有人的通用包，谁都可以拿去接自己的机器人和模型；教学仓 `scripts/` 下放的是这次工作坊专属的脚本：下哪几份钉死版本的数据和权重、怎么转换、单卡微调的配方、把 DM0.5 接到 SO-101 的控制循环、推演演示，以及把上午主线串成一条命令的 `scripts/pipeline.sh`。这些脚本直接调用两个通用包，教学仓本身不打包安装，也不另包一层自己的机器人接口。装好之后，Dexbotic、LeRobot 和仿真器都可以直接 `import`，第 3.4 节就会用到。
 
 ## 2.3 本节小结
 
@@ -197,13 +197,13 @@ robot = make_robot_from_config(SOFollowerRobotConfig(
 
 两段代码之后的部分完全相同，这就是第 3.3 节说的“一个接口驱动两种机器人”。唯一的区别在节拍：仿真里每调用一次 `send_action` 就前进一步，真机则是真实时间在走，要按每秒 30 次的节拍下发。
 
-教学仓里的演示脚本 `examples/hello_robot.py` 把上面这些包成了一条命令，机器人的配置用 LeRobot 命令行的写法给出（与 LeRobot 自带的 `lerobot-calibrate`、`lerobot-record` 等命令相同）：
+教学仓里的演示脚本 `scripts/hello_robot.py` 把上面这些包成了一条命令，机器人的配置用 LeRobot 命令行的写法给出（与 LeRobot 自带的 `lerobot-calibrate`、`lerobot-record` 等命令相同）：
 
 ```bash
 # 仿真
-uv run python examples/hello_robot.py --robot.type=so101_sim
+uv run python scripts/hello_robot.py --robot.type=so101_sim
 # 真机：同一个脚本，只换 --robot.* 这组参数
-uv run python examples/hello_robot.py --robot.type=so101_follower \
+uv run python scripts/hello_robot.py --robot.type=so101_follower \
     --robot.port=/dev/ttyACM0 --robot.id=my_so101 \
     --robot.use_degrees=true --robot.max_relative_target=5 \
     --robot.cameras="{top: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}"
@@ -308,15 +308,15 @@ DM0.5 以推理服务的形式运行：它监听一个网络端口，收到一�
 先在一个终端起推理服务（第一次运行会下载 DM0.5 的基座权重，要几分钟）：
 
 ```bash
-uv run python -m dexbotic.so101.serve
+uv run python scripts/serve.py
 ```
 
 服务就绪后，在另一个终端跑 10 局 4 cm 方块，再给录像加上标注：
 
 ```bash
-uv run python -m dexbotic.so101.rollout --robot.type=so101_sim \
+uv run python scripts/rollout.py --robot.type=so101_sim \
     --robot.task=SO101PickPlaceCube40-v1 --episodes=10 --out=out/rollout
-uv run python -m dexbotic.so101.label_videos \
+uv run python scripts/label_videos.py \
     --rollout-dir out/rollout --out out/labeled
 ```
 
@@ -388,7 +388,7 @@ $$
 DM0.5 的推理服务约占 12 GB 显存，DW0.5 推演约占 26 GB，一张 32 GB 的卡放不下两个，所以先在第一个终端按 Ctrl-C 停掉推理服务，再运行：
 
 ```bash
-uv run python -m dexbotic.so101.imagine --rollout-dir out/rollout --out out/imagine
+uv run python scripts/imagine.py --rollout-dir out/rollout --out out/imagine
 ```
 
 它读第 4.4 节跑出的轨迹：每一局都存下了逐帧的两路录像和逐步的关节状态，这些轨迹 DW0.5 训练时从没见过。喂给它的“真实动作”，是轨迹里每一步之后实际到达的关节状态。它从每个跑过的场景取 2 条轨迹——按第 4.4 节的命令只跑了 4 cm 方块，所以就是 2 条——每条从起始画面起连推 3 轮、共 96 步。三种动作各自的 PSNR 写在 `out/imagine/dw05_sim_check.json` 里，三行对照视频也在 `out/imagine/` 下，建议对着视频看数字。
@@ -433,8 +433,8 @@ DM0.5 与 DW0.5 用的是同一份训练数据，由两份公开数据集拼成�
 ## 6.2 下载与转换
 
 ```bash
-uv run python -m dexbotic.so101.download --data       # 两份数据集
-uv run python -m dexbotic.so101.prepare_data          # 转成 Dexdata
+uv run python scripts/download.py --data       # 两份数据集
+uv run python scripts/prepare_data.py          # 转成 Dexdata
 ```
 
 下载命令把两份数据放到 `~/so101_workspace/datasets/`，每份都钉死了版本：数据换了版本，训练结果就不可比。转换命令把仿真三个场景和真机九个任务转进同一份 Dexdata：每一集一个 jsonl 文件，共 3698 个；每一行是一帧，记着这一帧的关节状态、动作、指令，以及两路画面在原视频里的位置。下面是仿真 4 cm 方块第 0 集的第一行（数字保留一位小数，省去了其余字段）：
@@ -489,7 +489,7 @@ LoRA[7] 的做法是冻住原模型的权重，在每个选中的线性层旁边
 训练前先停掉第 4、5 节的推理服务和推演，训练要用整张卡：
 
 ```bash
-uv run python -m dexbotic.so101.train_lora --gpu 0
+uv run python scripts/train_lora.py --gpu 0
 ```
 
 ![单卡 LoRA 现场配方的训练损失：灰线为逐步损失，蓝线为滑动平均](figures/fig-06-lora-loss.png){width=80%}
@@ -501,9 +501,9 @@ uv run python -m dexbotic.so101.train_lora --gpu 0
 最后把自己训出的模型部署到仿真里看一看——这和第 4.4 节是同一套命令，只是推理服务换成自己的检查点：
 
 ```bash
-uv run python -m dexbotic.so101.serve \
+uv run python scripts/serve.py \
     --checkpoint ~/so101_workspace/runs/lora_single_gpu/checkpoint-300
-uv run python -m dexbotic.so101.rollout --robot.type=so101_sim \
+uv run python scripts/rollout.py --robot.type=so101_sim \
     --robot.task=SO101PickPlaceCube40-v1 --episodes=3 \
     --label=my_lora --out=out/my_model
 ```
@@ -521,7 +521,7 @@ LoRA 只训 5.27% 的参数，一张 32 GB 的卡就能微调 DM0.5。现场配�
 真机部署用的是第 4 节同一个控制循环，只把 `--robot.*` 这组参数换成真机的配置（和第 3.4 节真机那段代码一一对应）：串口、这台臂的名字、关节用度、每步的安全上限，以及两路相机的设备号：
 
 ```bash
-uv run python -m dexbotic.so101.rollout \
+uv run python scripts/rollout.py \
     --robot.type=so101_follower --robot.port=/dev/ttyACM0 --robot.id=my_so101 \
     --robot.use_degrees=true --robot.max_relative_target=5 \
     --robot.cameras="{top: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}" \
@@ -580,8 +580,8 @@ uv run lerobot-calibrate --robot.type=so101_follower --robot.port=/dev/ttyACM0 -
 
 代码（均在 GitHub 的 `Xbotics-Embodied-AI-club` 组织下）：
 
-- 教学仓 `Xbotics-Dexmal-Workshop`（不是 Python 包：只声明环境，外加讲义与演示脚本 `examples/hello_robot.py`）
-- 模型框架 `dexbotic`，提交 b630bdf
+- 教学仓 `Xbotics-Dexmal-Workshop`（工作坊脚本在 `scripts/`，讲义在 `lecture/`）
+- 模型框架 `dexbotic`，提交 d0987ef
 - 仿真器 `Xbotics-SO101-Sim`，提交 1510eee
 - 机器人接口 `lerobot`，提交 9381726
 
