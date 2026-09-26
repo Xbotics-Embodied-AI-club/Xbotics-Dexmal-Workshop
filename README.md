@@ -69,7 +69,7 @@ uv run python scripts/rollout.py \
 ```
 scripts/               工作坊脚本：下载、数据转换、控制循环、录像标注、单卡微调、上手演示
 lecture/               讲义（PDF）
-media/                 示例视频：仿真里动一动、DM0.5 抓放一局、DW0.5 推演对照
+media/                 示例视频：仿真里动一动、DM0.5 在三个场景各成功抓放一局、DW0.5 推演对照
 ```
 
 ## 许可
