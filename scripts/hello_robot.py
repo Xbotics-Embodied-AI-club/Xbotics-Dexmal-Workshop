@@ -1,9 +1,9 @@
 """第一次见面：用 LeRobot 造一台 SO-101，读一帧观测，让它原地挥一挥手，存下两路画面。
 
     # 仿真（默认 4 cm 方块场景）
-    uv run python examples/hello_robot.py --robot.type=so101_sim
+    uv run python scripts/hello_robot.py --robot.type=so101_sim
     # 真机：与仿真同一段代码，只换 --robot.* 这组参数（写法与 lerobot-calibrate / lerobot-record 相同）
-    uv run python examples/hello_robot.py --robot.type=so101_follower --robot.port=/dev/ttyACM0 \\
+    uv run python scripts/hello_robot.py --robot.type=so101_follower --robot.port=/dev/ttyACM0 \\
         --robot.id=my_so101 --robot.use_degrees=true --robot.max_relative_target=5 \\
         --robot.cameras="{top: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, \\
                           wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}"
