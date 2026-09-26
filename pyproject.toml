@@ -83,7 +83,3 @@ extend-exclude = ["third_party"]
 
 [tool.ruff.lint]
 extend-select = ["B", "I", "RUF100"]
-
-[tool.ruff.lint.per-file-ignores]
-# matplotlib.use("Agg") 必须在 import pyplot 之前执行（无显示器的机器上出图），导入顺序是故意的。
-"lecture/figures_src/figstyle.py" = ["I001", "E402"]

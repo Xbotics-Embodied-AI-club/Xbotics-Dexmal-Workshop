@@ -8,7 +8,7 @@
 
 | 用途 | 链接 |
 | --- | --- |
-| 讲义（PDF） | [lecture/pdf/dm05-dw05-workshop.pdf](lecture/pdf/dm05-dw05-workshop.pdf) |
+| 讲义（PDF） | [lecture/dm05-dw05-workshop.pdf](lecture/dm05-dw05-workshop.pdf) |
 | 代码（本仓） | 本仓一个 `uv sync` 装好全部依赖：模型框架 [dexbotic](https://github.com/Xbotics-Embodied-AI-club/dexbotic)、机器人接口 [LeRobot（Xbotics 维护版）](https://github.com/Xbotics-Embodied-AI-club/lerobot)，以及作为 LeRobot 依赖的仿真器 [Xbotics-SO101-Sim](https://github.com/Xbotics-Embodied-AI-club/Xbotics-SO101-Sim) |
 | 权重 | [DM0.5 微调权重](https://huggingface.co/Harrysunshine/so101-dm05-lora-sim-real-10task) · [DW0.5 微调权重](https://huggingface.co/Harrysunshine/so101-dw05-sim-real-10task) |
 | 数据 | [仿真数据（Hugging Face）](https://huggingface.co/datasets/Harrysunshine/so101-sim-pickplace-v2) · [真机数据（ModelScope）](https://modelscope.cn/datasets/zhuzhuangtian/so101-pick-place-tasks) |
@@ -68,8 +68,8 @@ uv run python scripts/rollout.py \
 
 ```
 scripts/               工作坊脚本：下载、数据转换、控制循环、录像标注、单卡微调、上手演示
-lecture/               讲义源文件、PDF、出图脚本与图背后的数据
-media/                 演示视频
+lecture/               讲义（PDF）
+media/                 示例视频：仿真里动一动、DM0.5 抓放成功与失败各一局、DW0.5 推演对照
 ```
 
 ## 许可
