@@ -39,11 +39,11 @@ uv run python scripts/download.py --weights   # 两份微调权重 + DW0.5 推�
 | --- | --- | --- |
 | 1. 认识机械臂：仿真里动一动 | `uv run python scripts/hello_robot.py --robot.type=so101_sim` | `hello_robot.mp4` |
 | 2. 起 DM0.5 推理服务（单独一个终端） | `uv run python -m dexbotic.so101.dm05_exp --task inference --model-config.model-name-or-path ~/so101_workspace/weights/so101-dm05-lora` | 服务在 `127.0.0.1:7891` |
-| 3. DM0.5 在仿真里抓放 | `uv run python scripts/rollout.py --robot.type=so101_sim --robot.task=SO101PickPlaceCube40-v1 --episodes=10 --out=out/rollout` | `out/rollout/rollout_dm05.json`、逐局录像 |
-| 4. 给录像加标注 | `uv run python scripts/label_videos.py --rollout-dir out/rollout --out out/labeled` | 顶视与腕部并排、写明成败的片子 |
+| 3. DM0.5 在仿真里抓放 | `uv run python scripts/rollout.py --robot.type=so101_sim --robot.task=SO101PickPlaceCube40-v1 --episodes=10 --out=out/rollout` | `out/rollout/rollout_dm05.json`、逐局录像（换 `--robot.task` 再跑，其余场景写进同一目录；同一场景重跑会先清掉上一轮的录像，想留着就换 `--label` 或 `--out`） |
+| 4. 给录像加标注 | `uv run python scripts/label_videos.py --rollout-dir out/rollout --out out/labeled` | 顶视与腕部并排、写明成败的片子，每个场景成功、失败各取前 2 局（`--per-kind` 可改） |
 | 5. DW0.5 推演未来（先停掉第 2 步的服务） | `uv run python -m dexbotic.so101.dw05_sim_check --checkpoint ~/so101_workspace/weights/so101-dw05/model.pt --norm-stats ~/so101_workspace/weights/so101-dw05/norm_stats.json --rollout-dir out/rollout --out out/imagine --per-scene 2` | 三行对照视频与各自的 PSNR（视频里的腕部画面有两份一样的，是模型输入格式所致，见讲义第 5.3 节） |
 | 6. 拓展：下载数据并转换 | `uv run python scripts/download.py --data && uv run python scripts/prepare_data.py` | 训练用的统一格式数据 |
-| 7. 拓展：单卡 LoRA 微调（约 70 分钟，先停掉第 2 步的服务） | `uv run python scripts/train_lora.py --gpu 0` | 第 300 步检查点与开环自检 `openloop.json` |
+| 7. 拓展：单卡 LoRA 微调（约 70 分钟，先停掉第 2 步的服务，否则脚本会拒绝开训） | `uv run python scripts/train_lora.py --gpu 0` | 第 300 步检查点与开环自检 `openloop.json` |
 | 7′. 拓展：部署自己训出的模型 | `uv run python -m dexbotic.so101.dm05_exp --task inference --model-config.model-name-or-path ~/so101_workspace/runs/lora_single_gpu/checkpoint-300`，再另开终端跑第 3 步的命令，改成 `--episodes=3 --label=my_lora --out=out/my_model` | 自己的模型在仿真里的录像 |
 | 8. 拓展：接真机（先按讲义第 8.2 节标定） | 见下方 | 真机录像 |
 
