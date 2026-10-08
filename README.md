@@ -13,9 +13,9 @@
 | 权重 | [DM0.5 微调权重](https://huggingface.co/Harrysunshine/so101-dm05-lora-sim-real-10task) · [DW0.5 微调权重](https://huggingface.co/Harrysunshine/so101-dw05-sim-real-10task) |
 | 数据 | [仿真数据（Hugging Face）](https://huggingface.co/datasets/Harrysunshine/so101-sim-pickplace-v2) · [真机数据（ModelScope）](https://modelscope.cn/datasets/zhuzhuangtian/so101-pick-place-tasks) |
 
-## 第 2 节 · Dexbotic：框架与安装
+## 第 2 节 · Dexbotic：框架与环境
 
-需要一张 32 GB 显存的 NVIDIA 显卡（现场是 RTX 5090，驱动需支持 CUDA 12.8），以及 [uv](https://docs.astral.sh/uv/)。
+需要一张 32 GB 显存的 NVIDIA 显卡（驱动需支持 CUDA 12.8），以及 [uv](https://docs.astral.sh/uv/)。
 
 ```bash
 git clone https://github.com/Xbotics-Embodied-AI-club/Xbotics-Dexmal-Workshop.git && cd Xbotics-Dexmal-Workshop
@@ -120,7 +120,7 @@ DM0.5 每 1000 步存一次，在仿真里逐个评测：第 3000、4000 步各�
 发布的 DM0.5 用第 4 节的命令在三个仿真场景各跑 50 局：4 cm 方块 47/50、2 cm 方块 46/50、罐子 47/50。
 发布的 DW0.5 在 12 条 DM0.5 跑出的仿真轨迹上（上面 50 局里每个场景的前 4 局），按真实动作推演的画面与真实画面的
 平均 PSNR 为 22.97 dB，高于「复制起始帧」的 19.03 dB 和「倒放动作」的 17.33 dB，12 条全部胜过倒放。
-显存峰值（与现场同代的显卡上实测）：DM0.5 推理服务约 12 GB，DW0.5 推演约 26 GB，单卡 LoRA 约 24 GB。
+显存峰值（实测）：DM0.5 推理服务约 12 GB，DW0.5 推演约 26 GB，单卡 LoRA 约 24 GB。
 
 ## 目录
 
