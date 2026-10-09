@@ -6,3 +6,5 @@ user_checkpoints/
 # 学员跑出来的产物：演示录像默认写在仓根，其余命令的 --out 在讲义里写的是 out/。
 /hello_robot.mp4
 /out/
+# LeRobot 远程推理（policy_server / robot_client）往当前目录的 logs/ 写运行日志。
+/logs/

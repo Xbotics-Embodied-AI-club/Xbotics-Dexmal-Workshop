@@ -2,7 +2,7 @@
 
 一天的工作坊：认识 Dexbotic 框架和 SO-101 机械臂，用原力灵机开源的两个模型——
 **DM0.5**（看画面、听指令、出动作的 VLA 策略）和 **DW0.5**（照一串动作画出未来画面的世界模型）——
-在仿真里推理，再动手微调一次，最后把同一套代码接到真机上。
+在仿真里推理，再动手微调一次，最后经 LeRobot 自带的远程推理接到真机上。
 
 ## 链接
 
@@ -28,14 +28,15 @@ uv run python scripts/download.py --weights   # 两份微调权重 + DW0.5 推�
 
 dexbotic（模型框架）和 LeRobot（机器人接口）是面向所有人的通用包，本仓不改它们；本仓 `scripts/`
 只放这次工作坊专属的脚本，推理服务与 DW0.5 推演直接用 dexbotic 自带的命令。
-机器人一律用 LeRobot 的配置写法给出（`--robot.type=...`），仿真是 `so101_sim`，真机是 `so101_follower`，换机器人只换这组参数。
+机器人一律用 LeRobot 的配置写法给出（`--robot.type=...`）：仿真是 `so101_sim`，真机是 `so101_follower`。
+`scripts/` 下的脚本按讲义章节编号（`4_4_rollout.py` 即第 4.4 节用的那个），`download.py` 只用于安装。
 
 下面每一节对应讲义的同名章节（第 1 节是全天路线，第 9 节是小结，没有命令）；每一步为什么这样做、结果怎么读，见讲义。
 
 ## 第 3 节 · 星禾套件：SO-101 真机与仿真器
 
 ```bash
-uv run python scripts/hello_robot.py --robot.type=so101_sim   # 产物 hello_robot.mp4
+uv run python scripts/3_4_hello_robot.py --robot.type=so101_sim   # 产物 hello_robot.mp4
 ```
 
 ## 第 4 节 · DM0.5：原理与仿真部署
@@ -45,8 +46,8 @@ uv run python scripts/hello_robot.py --robot.type=so101_sim   # 产物 hello_rob
 ```bash
 uv run python -m dexbotic.so101.dm05_exp --task inference \
     --model-config.model-name-or-path ~/so101_workspace/weights/so101-dm05-lora
-uv run python scripts/rollout.py --robot.type=so101_sim --robot.task=SO101PickPlaceCube40-v1 --episodes=10 --out=out/rollout
-uv run python scripts/label_videos.py --rollout-dir out/rollout --out out/labeled
+uv run python scripts/4_4_rollout.py --robot.type=so101_sim --robot.task=SO101PickPlaceCube40-v1 --episodes=10 --out=out/rollout
+uv run python scripts/4_4_label_videos.py --rollout-dir out/rollout --out out/labeled
 ```
 
 `out/rollout/rollout_dm05.json` 是成功局数，`out/labeled/` 是顶视与腕部并排、写明成败的录像
@@ -70,7 +71,7 @@ uv run python -m dexbotic.so101.dw05_sim_check \
 ## 第 6 节 · 数据集
 
 ```bash
-uv run python scripts/download.py --data && uv run python scripts/prepare_data.py
+uv run python scripts/download.py --data && uv run python scripts/6_2_prepare_data.py
 ```
 
 ## 第 7 节 · 拓展：DM0.5 单卡微调
@@ -79,24 +80,38 @@ uv run python scripts/download.py --data && uv run python scripts/prepare_data.p
 结果在 `openloop.json`。然后把自己的模型部署回仿真：
 
 ```bash
-uv run python scripts/train_lora.py --gpu 0
+uv run python scripts/7_3_train_lora.py --gpu 0
 uv run python -m dexbotic.so101.dm05_exp --task inference \
     --model-config.model-name-or-path ~/so101_workspace/runs/lora_single_gpu/checkpoint-300
-uv run python scripts/rollout.py --robot.type=so101_sim --robot.task=SO101PickPlaceCube40-v1 \
+uv run python scripts/4_4_rollout.py --robot.type=so101_sim --robot.task=SO101PickPlaceCube40-v1 \
     --episodes=3 --label=my_lora --out=out/my_model
 ```
 
 ## 第 8 节 · 拓展：DM0.5 真机部署
 
-先按讲义第 8.2 节标定。与第 4 节是同一个控制循环，只把 `--robot.*` 换成真机的那组（串口、臂的名字、两路相机）：
+真机走 LeRobot 自带的远程推理：GPU 机起策略服务 `policy_server`，接机械臂的机器跑机器人客户端 `robot_client`。
+本仓环境里的插件 [lerobot_policy_dm05](https://github.com/Xbotics-Embodied-AI-club/dexbotic/tree/main/integrations/lerobot_policy_dm05)
+把 DM0.5 登记成 LeRobot 的策略类型 `dm05`，推理代码就是第 4 节推理服务的那一份。接臂的机器只需装
+[LeRobot（Xbotics 维护版）](https://github.com/Xbotics-Embodied-AI-club/lerobot) 与本仓同一个提交（见 `pyproject.toml`），
+先按讲义第 8.2 节标定。
 
 ```bash
-uv run python scripts/rollout.py \
+# GPU 机（本仓目录）
+uv run python -m lerobot.async_inference.policy_server --host=0.0.0.0 --port=8080 --fps=30
+
+# 接臂的机器
+python -m lerobot.async_inference.robot_client \
+    --server_address=<GPU 机地址>:8080 \
     --robot.type=so101_follower --robot.port=/dev/ttyACM0 --robot.id=my_so101 \
     --robot.use_degrees=true --robot.max_relative_target=5 \
     --robot.cameras="{top: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}" \
-    --prompt="<训练数据里的指令原句>" --episodes=3 --out=out/real
+    --task="<训练数据里的指令原句>" \
+    --policy_type=dm05 --pretrained_name_or_path=<GPU 机上的 DM0.5 权重目录> \
+    --policy_device=cuda --client_device=cpu \
+    --actions_per_chunk=50 --chunk_size_threshold=0.5 --aggregate_fn_name=weighted_average --fps=30
 ```
+
+`--pretrained_name_or_path` 由 GPU 机去读。两路相机必须叫 `top` 与 `wrist`，关节读数用度。
 
 ## 发布的模型是怎么训的
 

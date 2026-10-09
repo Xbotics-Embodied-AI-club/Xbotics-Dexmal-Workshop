@@ -18,7 +18,10 @@ DM05_ADAPTER_REPO, DM05_ADAPTER_REVISION = (
     "Harrysunshine/so101-dm05-lora-sim-real-10task",
     "ca7a518e3176d150591b0ef2fd122c5d0218c637",
 )
-DW05_REPO, DW05_REVISION = "Harrysunshine/so101-dw05-sim-real-10task", "f457f1662502193ac8fd6144dd210e7773375866"
+DW05_REPO, DW05_REVISION = (
+    "Harrysunshine/so101-dw05-sim-real-10task",
+    "f457f1662502193ac8fd6144dd210e7773375866",
+)
 DW05_BASE_REPO, DW05_BASE_REVISION = "Dexmal/DW05-Robotwin", "6ab5f9e2636610cba440d08264663efe70c3f761"
 WAN_REPO, WAN_REVISION = "Wan-AI/Wan2.2-TI2V-5B", "921dbaf3f1674a56f47e83fb80a34bac8a8f203e"
 SIM_DATA_REPO, SIM_DATA_REVISION = (
@@ -92,7 +95,7 @@ def data() -> None:
         ],
         check=True,
     )
-    print(f"训练数据就位：{root}；下一步 python scripts/prepare_data.py")
+    print(f"训练数据就位：{root}；下一步 python scripts/6_2_prepare_data.py")
 
 
 def main() -> int:

@@ -1,6 +1,6 @@
-"""把下载好的仿真与真机数据转成 DM0.5 / DW0.5 训练用的统一格式（dexdata）。
+"""讲义第 6.2 节 · 把下载好的仿真与真机数据转成 DM0.5 / DW0.5 训练用的统一格式（dexdata）。
 
-    python scripts/prepare_data.py
+    uv run python scripts/6_2_prepare_data.py
 
 输入（`scripts/download.py --data` 下好的位置）：
     <数据目录>/so101-sim-640-v2/{cube40,cube20,cylinder40}   仿真三个场景

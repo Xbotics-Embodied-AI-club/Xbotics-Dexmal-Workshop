@@ -1,6 +1,6 @@
-"""单卡 LoRA 微调 DM0.5：现场配方，一张 32 GB 的卡约 70 分钟，训完直接做开环自检。
+"""讲义第 7.3 节 · 单卡 LoRA 微调 DM0.5：现场配方，学员机（L40）上约 2 小时，训完直接做开环自检。
 
-    python scripts/train_lora.py --gpu 0
+    uv run python scripts/7_3_train_lora.py --gpu 0
 
 配方：每次前向 8 个样本、梯度累积 6 次（一次参数更新用 48 个样本，与发布模型的完整训练相同），
 训 300 步，前 30 步学习率从 0 升到 1e-4。累积次数是为了在单卡上凑出与完整训练相同的更新批量，别为求快去掉。
@@ -65,8 +65,8 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     jsonl = pathlib.Path(DM05DataConfig.jsonl_dir)
     if not jsonl.is_dir():
-        raise SystemExit(f"训练数据还没转换：{jsonl} 不存在；先运行 python scripts/prepare_data.py")
-    # 这两项都要等训练跑完（约 70 分钟）才用到，出错了开跑前就停下。
+        raise SystemExit(f"训练数据还没转换：{jsonl} 不存在；先运行 python scripts/6_2_prepare_data.py")
+    # 这两项都要等训练跑完（约 2 小时）才用到，出错了开跑前就停下。
     missing = [name for name in OPENLOOP_EPISODES if not (jsonl / name).is_file()]
     if missing:
         raise SystemExit(f"开环自检要用的数据集不在 {jsonl}：{missing}")

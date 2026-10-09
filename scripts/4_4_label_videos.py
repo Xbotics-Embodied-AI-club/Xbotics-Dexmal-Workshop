@@ -1,10 +1,10 @@
-"""把 rollout 存下的单局录像做成 top | wrist 并排的片子，顶上横幅写明来历。
+"""讲义第 4.4 节 · 把 rollout 存下的单局录像做成 top | wrist 并排的片子，顶上横幅写明来历。
 
-横幅写清哪个模型、哪个场景、第几局、成没成、是策略在仿真里还是真机上跑的 ——
-没有这行字，策略 rollout 与数据集里同样两路并排的演示录像肉眼分不开。
+横幅写清哪个模型、哪个场景、第几局、成没成 —— 没有这行字，策略 rollout 与数据集里
+同样两路并排的演示录像肉眼分不开。
 
 用法：
-    python scripts/label_videos.py --rollout-dir <rollout 的输出目录> --out <目录> [--per-kind 2]
+    uv run python scripts/4_4_label_videos.py --rollout-dir <rollout 的输出目录> --out <目录> [--per-kind 2]
 
 每个场景的成功、失败各取前 `--per-kind` 局。
 """
@@ -52,13 +52,14 @@ def main() -> int:
         wrist = read_frames(top_path.with_name(top_path.stem + "_wrist.mp4"))
         n = min(len(top), len(wrist))
         fps = video_fps(top_path)
-        where = "on the real SO-101" if scene == "real" else "in so101_sim"
         text = (
-            f"{label} policy rollout {where} | {scene} {episode} | "
+            f"{label} policy rollout in so101_sim | {scene} {episode} | "
             f"{'SUCCESS' if kind == 'success' else 'FAIL'} | {n} steps @{fps:g}fps | left: top  right: wrist"
         )
         head = banner(top.shape[2] + wrist.shape[2], text, kind == "success")
-        frames = [np.concatenate([head, np.concatenate([top[t], wrist[t]], axis=1)], axis=0) for t in range(n)]
+        frames = [
+            np.concatenate([head, np.concatenate([top[t], wrist[t]], axis=1)], axis=0) for t in range(n)
+        ]
         dst = args.out / f"{top_path.stem}.mp4"
         iio.imwrite(str(dst), np.stack(frames), fps=fps, codec="libx264")
         made.append(dst.name)

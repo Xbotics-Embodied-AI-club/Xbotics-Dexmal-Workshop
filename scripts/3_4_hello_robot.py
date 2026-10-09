@@ -1,19 +1,13 @@
-"""第一次见面：用 LeRobot 造一台 SO-101，读一帧观测，让它原地挥一挥手，存下两路画面。
+"""讲义第 3.4 节 · 第一次见面：用 LeRobot 造一台仿真 SO-101，读一帧观测，让它原地挥一挥手，存下两路画面。
 
-    # 仿真（默认 4 cm 方块场景）
-    uv run python scripts/hello_robot.py --robot.type=so101_sim
-    # 真机：与仿真同一段代码，只换 --robot.* 这组参数（写法与 lerobot-calibrate / lerobot-record 相同）
-    uv run python scripts/hello_robot.py --robot.type=so101_follower --robot.port=/dev/ttyACM0 \\
-        --robot.id=my_so101 --robot.use_degrees=true --robot.max_relative_target=5 \\
-        --robot.cameras="{top: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, \\
-                          wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}"
+    uv run python scripts/3_4_hello_robot.py --robot.type=so101_sim     # 默认 4 cm 方块场景
 
+机器人的配置用 LeRobot 命令行的写法给出（与 lerobot-calibrate / lerobot-record 相同）。
 `get_observation()` 给六个关节读数（五个臂关节为度，夹爪为 0~100 行程百分比）和 `top` / `wrist`
 两路画面，`send_action()` 收六个关节的绝对目标。这里让手腕左右各转 30 度、夹爪开合两次，
 原地动作碰不到桌上的物体；两路画面并排存成录像。
 """
 
-import time
 from dataclasses import dataclass
 
 import draccus
@@ -21,11 +15,10 @@ import imageio.v3 as iio
 import numpy as np
 
 # 仿真器把自己注册成 LeRobot 里一种叫 so101_sim 的机器人；import 这一行即完成注册。
-import so101_sim.config_lerobot_robot
-from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig  # noqa: F401  注册 opencv 相机
-from lerobot.robots import RobotConfig, make_robot_from_config, so_follower  # noqa: F401  注册 so101_follower
+import so101_sim.config_lerobot_robot  # noqa: F401
+from lerobot.robots import RobotConfig, make_robot_from_config
 
-#: 与训练数据同一帧率：真机按它下发动作，录像也按它存。
+#: 录像帧率，与训练数据一致。仿真每次 send_action 就是一步，不等墙钟。
 FPS = 30
 
 
@@ -39,7 +32,6 @@ class HelloConfig:
 
 @draccus.wrap()
 def main(cfg: HelloConfig) -> None:
-    is_sim = isinstance(cfg.robot, so101_sim.config_lerobot_robot.SO101SimRobotConfig)
     robot = make_robot_from_config(cfg.robot)
     robot.connect()
     try:
@@ -51,14 +43,11 @@ def main(cfg: HelloConfig) -> None:
         steps = int(cfg.seconds * FPS)
         frames = []
         for t in range(steps):
-            began = time.monotonic()
             phase = np.sin(2 * np.pi * t / steps)
             target = start.copy()
             target[joints.index("wrist_roll.pos")] += 30 * phase
             target[joints.index("gripper.pos")] = 50 * abs(phase)
             robot.send_action(dict(zip(joints, target.tolist(), strict=True)))
-            if not is_sim:  # 仿真每次 send_action 就是一步，不用等墙钟
-                time.sleep(max(0.0, 1 / FPS - (time.monotonic() - began)))
             obs = robot.get_observation()
             frames.append(np.concatenate([np.asarray(obs["top"]), np.asarray(obs["wrist"])], axis=1))
         iio.imwrite(cfg.out, np.stack(frames), fps=FPS, codec="libx264")

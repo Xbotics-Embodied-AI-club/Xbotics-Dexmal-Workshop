@@ -12,10 +12,12 @@ requires-python = ">=3.12,<3.13"
 # 以下各项钉版都是 dexbotic 自己的声明管不到、但实际运行时一旦松开就出错的地方。
 dependencies = [
     "dexbotic",
-    # 机器人的硬件接口（HAL）：仿真与真机都走 LeRobot 的 Robot 接口，控制循环只写一份。
-    # 只用它的 robots / motors / cameras 三层，不用它的策略与推理服务。
-    "lerobot[feetech]",
-    # 现场显卡是 RTX 5090（Blackwell，sm_120），需要 CUDA 12.8 的轮子，见下方 index；版本钉在下方 override。
+    # 机器人接口：仿真与真机都走 LeRobot 的 Robot 接口。async 是它的远程推理（gRPC）：
+    # 真机部署时学员机跑 policy_server、接臂的板子跑 robot_client（讲义第 8 节）。
+    "lerobot[feetech,async]",
+    # 把 DM0.5 登记成 LeRobot 的策略类型 dm05，policy_server 才认得它；推理代码就是 dexbotic 的推理服务那一份。
+    "lerobot_policy_dm05",
+    # 取 CUDA 12.8 的轮子（Blackwell 一代 sm_120 的卡也要它），见下方 index；版本钉在下方 override。
     "torch",
     "torchvision",
     # dexbotic 只给下界；实测 5.15 起 DM0.5 起服务时与 kernels 接口不配套，直接报错。
@@ -76,9 +78,12 @@ explicit = true
 [tool.uv.sources]
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
-dexbotic = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git", rev = "8f00f67e992c1971587c07846c604948b1773bbf" }
-# LeRobot 用 Xbotics 维护的版本，钉提交。
-lerobot = { git = "https://github.com/Xbotics-Embodied-AI-club/lerobot.git", rev = "9381726d2a99f1da8f822ab0917246106d6f8d7c" }
+dexbotic = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git", rev = "7ba1a2b7f4baef8e70a13a9beb73c022f12f1287" }
+# DM0.5 的 LeRobot 策略插件在 dexbotic 仓的子目录里，与 dexbotic 钉同一个提交。
+lerobot_policy_dm05 = { git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git", rev = "7ba1a2b7f4baef8e70a13a9beb73c022f12f1287", subdirectory = "integrations/lerobot_policy_dm05" }
+# LeRobot 用 Xbotics 维护的版本，钉提交。这一版的 policy_server 能加载插件策略；接臂的板子上必须装同一个提交
+#（robot_client 与 policy_server 之间传的是 pickle 后的 LeRobot 对象，两边版本不同就对不上）。
+lerobot = { git = "https://github.com/Xbotics-Embodied-AI-club/lerobot.git", rev = "28c98a9b62932227c377b199b6c30be316129d91" }
 # PyPI 上只有源码包，会触发半小时级的本地编译；取社区按 torch / CUDA 版本逐一预编译的轮子。
 # 官方 release 最新只到 torch 2.10，且轮子元数据里的版本号不带文件名上的本地标签，uv 每次运行都判它
 # 「不是最新」重装一遍；这一份按 torch 2.11 + CUDA 12.8 编译，元数据版本与文件名一致。
