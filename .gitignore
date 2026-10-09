@@ -8,3 +8,5 @@ user_checkpoints/
 /out/
 # LeRobot 远程推理（policy_server / robot_client）往当前目录的 logs/ 写运行日志。
 /logs/
+# 单卡微调的 wandb 离线记录写在当前目录的 wandb/。
+/wandb/
