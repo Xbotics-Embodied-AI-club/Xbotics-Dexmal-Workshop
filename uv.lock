@@ -1624,7 +1624,7 @@ wheels = [
 [[package]]
 name = "lerobot"
 version = "0.5.1"
-source = { git = "https://github.com/Xbotics-Embodied-AI-club/lerobot.git?rev=28c98a9b62932227c377b199b6c30be316129d91#28c98a9b62932227c377b199b6c30be316129d91" }
+source = { git = "https://github.com/Xbotics-Embodied-AI-club/lerobot.git?rev=252c056ceef99ae1168c63d96987039ce03298a2#252c056ceef99ae1168c63d96987039ce03298a2" }
 dependencies = [
     { name = "accelerate" },
     { name = "av" },
@@ -3908,7 +3908,7 @@ requires-dist = [
     { name = "imageio" },
     { name = "imageio-ffmpeg" },
     { name = "kernels", specifier = ">=0.10.2,<0.11" },
-    { name = "lerobot", extras = ["feetech", "async"], git = "https://github.com/Xbotics-Embodied-AI-club/lerobot.git?rev=28c98a9b62932227c377b199b6c30be316129d91" },
+    { name = "lerobot", extras = ["feetech", "async"], git = "https://github.com/Xbotics-Embodied-AI-club/lerobot.git?rev=252c056ceef99ae1168c63d96987039ce03298a2" },
     { name = "lerobot-policy-dm05", git = "https://github.com/Xbotics-Embodied-AI-club/dexbotic.git?subdirectory=integrations%2Flerobot_policy_dm05&rev=7ba1a2b7f4baef8e70a13a9beb73c022f12f1287" },
     { name = "liger-kernel" },
     { name = "modelscope" },
